@@ -141,7 +141,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // The directory storing the tracklets of the video is stored in the database.
             this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
                     // Retrieve and deliver tracklets.
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kv -> {
                                 final Logger logger = loggerSingleton.getInst();
 
                                 try {
@@ -201,7 +201,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track with attributes retrieving jobs in parallel from Kafka.
             this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
                     // Retrieve and deliver tracklets with attributes.
-                    .foreachRDD(rdd -> rdd.foreach(job -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(job -> {
                                 final Logger logger = loggerSingleton.getInst();
                                 try {
                                     final String taskID = job._1();
@@ -325,7 +325,7 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {// Save tracklets.
             this.<TaskData<Tracklet>>filter(globalStream, PED_TRACKLET_SAVING_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // RuntimeException: No native JavaCPP library
@@ -409,7 +409,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             this.<TaskData<Tracklet>>filter(globalStream, PED_ATTR_SAVING_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(res -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             final TaskData taskData = res._2();
@@ -448,7 +448,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
             this.<TaskData<Tracklet>>filter(globalStream, PED_IDRANK_SAVING_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             final TaskData taskData = kv._2();

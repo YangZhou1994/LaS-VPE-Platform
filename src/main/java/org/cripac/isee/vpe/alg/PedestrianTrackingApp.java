@@ -184,7 +184,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             return null;
                         }
                     })
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover data.
@@ -253,7 +253,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         hdfsSingleton.getInst(),
                                         loggerSingleton.getInst());
 
-                        rdd.foreach(kv -> {
+                        rdd.foreachAsync(kv -> {
                             final Logger logger = loggerSingleton.getInst();
                             try {
                                 final String taskID = kv._1();

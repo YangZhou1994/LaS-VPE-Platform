@@ -165,7 +165,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.<TaskData<Tracklet>>filter(globalStream, TRACKLET_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kv -> {
                         try {
                             Logger logger = loggerSingleton.getInst();
 

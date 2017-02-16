@@ -357,7 +357,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         @Override
         public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             this.<Hashtable<String, Serializable>>filter(globalStream, COMMAND_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(msg -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(msg -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             String taskID = UUID.randomUUID().toString();
