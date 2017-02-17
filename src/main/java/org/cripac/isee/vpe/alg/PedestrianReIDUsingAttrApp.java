@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.alg;
 
@@ -56,7 +56,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "pedestrian-reID-using-attr";
+    public static final String APP_NAME = "pedestrian-reid-using-attr";
     private static final long serialVersionUID = 7561012713161590005L;
 
     /**

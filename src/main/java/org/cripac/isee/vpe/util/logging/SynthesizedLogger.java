@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.util.logging;
 
@@ -140,7 +140,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -165,7 +165,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -192,7 +192,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -219,7 +219,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -245,7 +245,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
