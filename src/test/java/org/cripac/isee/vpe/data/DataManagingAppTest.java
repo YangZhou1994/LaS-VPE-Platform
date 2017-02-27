@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.data;
 
@@ -21,9 +21,9 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -77,9 +77,7 @@ public class DataManagingAppTest {
     public void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
-        TopicManager.checkTopics(propCenter);
-
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
@@ -87,7 +85,7 @@ public class DataManagingAppTest {
     //    @Test
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
         Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
@@ -95,8 +93,11 @@ public class DataManagingAppTest {
             Tracklet tracklet = tracklets[i];
             tracklet.id = new Tracklet.Identifier("fake", i);
 
-            TaskData data = new TaskData(savingNode, plan, tracklet);
-            sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
+            TaskData data = new TaskData(
+                    savingNode.createInputPort(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT),
+                    plan,
+                    tracklet);
+            sendWithLog(DataType.TRACKLET.name(),
                     taskID,
                     serialize(data),
                     producer,
@@ -107,14 +108,17 @@ public class DataManagingAppTest {
     //    @Test
     public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 
-        TaskData data = new TaskData(savingNode, plan, attributes);
-        sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
+        TaskData data = new TaskData(
+                savingNode.createInputPort(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT),
+                plan,
+                attributes);
+        sendWithLog(DataType.ATTRIBUTES.name(),
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,

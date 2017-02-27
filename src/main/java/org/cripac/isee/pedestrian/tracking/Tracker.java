@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.pedestrian.tracking;
 
@@ -37,5 +37,6 @@ public abstract class Tracker {
      * @param videoStream Video stream to conduct tracking on.
      * @return A set of tracklets of pedestrians.
      */
+    @Nonnull
     public abstract Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
 }

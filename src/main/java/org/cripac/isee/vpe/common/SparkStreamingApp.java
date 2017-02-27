@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,21 +13,44 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.common;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import kafka.admin.AdminUtils;
+import kafka.utils.ZkUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.log4j.Level;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkException;
+import org.apache.spark.TaskContext;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.JavaInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
+import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.util.SerializationHelper;
+import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
@@ -40,34 +63,189 @@ import java.io.Serializable;
 public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
+    private SystemPropertyCenter propCenter;
+    private final String appName;
+
+    /**
+     * Kafka parameters for creating input streams pulling messages from Kafka
+     * Brokers.
+     */
+    private final Map<String, Object> kafkaParams;
+
+    public SparkStreamingApp(SystemPropertyCenter propCenter, String appName) throws Exception {
+        this.propCenter = propCenter;
+        this.appName = appName;
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
+        kafkaParams = propCenter.getKafkaParams(appName);
+    }
 
     /**
      * Common Spark Streaming context variable.
      */
-    private transient JavaStreamingContext streamingContext = null;
+    private transient JavaStreamingContext jssc = null;
+
+    protected final Singleton<Logger> loggerSingleton;
+
+    private final List<Stream> streams = new ArrayList<>();
+
+    protected void checkTopics(Collection<DataType> dataTypes) {
+        Logger logger;
+        try {
+            logger = loggerSingleton.getInst();
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger = new ConsoleLogger(Level.DEBUG);
+        }
+        logger.info("Checking topics: " + dataTypes.stream().map(Enum::name)
+                .reduce("", (s1, s2) -> s1 + ", " + s2));
+
+        logger.info("Connecting to zookeeper: " + propCenter.zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+
+        for (DataType type : dataTypes) {
+            if (!AdminUtils.topicExists(zkUtils, type.name())) {
+                // AdminUtils.createTopic(zkClient, topic,
+                // propCenter.kafkaNumPartitions,
+                // propCenter.kafkaReplFactor, new Properties());
+                logger.info("Creating topic: " + type);
+                kafka.admin.TopicCommand.main(
+                        new String[]{
+                                "--create",
+                                "--zookeeper", propCenter.zkConn,
+                                "--topic", type.name(),
+                                "--partitions", "" + propCenter.kafkaNumPartitions,
+                                "--replication-factor", "" + propCenter.kafkaReplFactor});
+            }
+        }
+
+        logger.info("Topics checked!");
+    }
+
+    protected void registerStreams(Collection<Stream> streams) {
+        this.streams.addAll(streams);
+    }
 
     /**
-     * Implemented by subclasses, this method produces an application-specified
-     * Spark Streaming context.
+     * Utility function for all applications to receive messages with byte
+     * array values from Kafka with direct stream.
      *
-     * @return An application-specified Spark Streaming context.
+     * @param acceptingTypes Data types the stream accepts.
+     * @param toRepartition Whether to repartition the RDDs.
+     * @return A Kafka non-receiver input stream.
      */
-    protected abstract JavaStreamingContext getStreamContext();
+    protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
+    buildDirectStream(@Nonnull Collection<DataType> acceptingTypes,
+                      boolean toRepartition) throws SparkException {
+        final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
+                KafkaUtils.createDirectStream(jssc,
+                        propCenter.kafkaLocationStrategy.equals("PreferBrokers") ?
+                                LocationStrategies.PreferBrokers() :
+                                LocationStrategies.PreferConsistent(),
+                        ConsumerStrategies.Subscribe(
+                                acceptingTypes.stream().map(Enum::name).collect(Collectors.toList()),
+                                kafkaParams));
 
-    abstract public String getAppName();
+        JavaPairDStream<DataType, Tuple2<String, byte[]>> stream = inputDStream
+                // Manipulate offsets.
+                .transform(rdd -> {
+                    final Logger logger = loggerSingleton.getInst();
+
+                    // Store offsets.
+                    final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+
+                    // Directly commit the offsets, since data has been checkpointed in Spark Streaming.
+                    ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsetRanges);
+
+                    // Find offsets which indicate new messages have been received.
+                    rdd.foreachPartition(consumerRecords -> {
+                        OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
+                        if (o.fromOffset() < o.untilOffset()) {
+                            loggerSingleton.getInst().debug("Received {topic=" + o.topic()
+                                    + ", partition=" + o.partition()
+                                    + ", fromOffset=" + o.fromOffset()
+                                    + ", untilOffset=" + o.untilOffset() + "}");
+                        }
+                    });
+                    int numNewMessages = 0;
+                    for (OffsetRange o : offsetRanges) {
+                        numNewMessages += o.untilOffset() - o.fromOffset();
+                    }
+                    if (numNewMessages == 0) {
+                        logger.debug("No new messages!");
+                    } else {
+                        logger.debug("Received " + numNewMessages + " messages totally.");
+                    }
+                    return rdd;
+                })
+                .mapToPair(rec -> new Tuple2<>(DataType.valueOf(rec.topic()),
+                        new Tuple2<>(rec.key(), rec.value())));
+
+        if (toRepartition) {
+            // Repartition the records.
+            stream = stream.repartition(jssc.sparkContext().defaultParallelism());
+        }
+
+        return stream;
+    }
+
+    /**
+     * Utility function for all applications to receive messages with byte
+     * array values from Kafka with direct stream. RDDs are repartitioned by default.
+     *
+     * @param acceptingTypes Data types the stream accepts.
+     * @return A Kafka non-receiver input stream.
+     */
+    protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
+    buildDirectStream(@Nonnull Collection<DataType> acceptingTypes) throws SparkException {
+        return buildDirectStream(acceptingTypes, true);
+    }
+
+    /**
+     * Add streaming actions directly to the global streaming context.
+     * This is for applications that may take as input messages with types other than {@link TaskData}.
+     * Actions that take {@link TaskData} as input should be implemented in the
+     * {@link Stream#addToGlobalStream(Map)}, in order to save time of deserialization.
+     * Note that existence of Kafka topics used in this method is not automatically checked.
+     * Remember to call {@link #checkTopics(Collection)} to check this.
+     */
+    public abstract void addToContext() throws Exception;
 
     /**
      * Initialize the application.
-     *
-     * @param propCenter Properties of the whole system.
      */
-    public void initialize(@Nonnull SystemPropertyCenter propCenter) {
-        SynthesizedLogger logger = new SynthesizedLogger(getAppName(), propCenter);
+    public void initialize() {
+        final Collection<DataType> acceptingTypes = streams.stream()
+                .flatMap(stream -> stream.getPorts().stream().map(port -> port.inputType))
+                .collect(Collectors.toList());
 
-        String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
-        logger.info("Using " + checkpointDir + " as checkpoint directory.");
-        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
-            JavaStreamingContext context = getStreamContext();
+        checkTopics(acceptingTypes);
+
+        String checkpointDir = propCenter.checkpointRootDir + "/" + appName;
+        jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
+            // Load default Spark configurations.
+            SparkConf sparkConf = new SparkConf(true);
+            // Register custom classes with Kryo.
+            sparkConf.registerKryoClasses(new Class[]{TaskData.class, DataType.class});
+            // Create contexts.
+            JavaSparkContext sc = new JavaSparkContext(sparkConf);
+            sc.setLocalProperty("spark.scheduler.pool", "vpe");
+            jssc = new JavaStreamingContext(sc, Durations.milliseconds(propCenter.batchDuration));
+
+            addToContext();
+
+            if (!acceptingTypes.isEmpty()) {
+                final JavaPairDStream<DataType, Tuple2<String, byte[]>> inputStream =
+                        buildDirectStream(acceptingTypes);
+                Map<DataType, JavaPairDStream<String, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
+                acceptingTypes.forEach(type -> streamMap.put(type, inputStream
+                        .filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
+                        .mapToPair(rec ->
+                                new Tuple2<>(rec._2()._1(), SerializationHelper.deserialize(rec._2()._2())))));
+                streams.forEach(stream -> stream.addToGlobalStream(streamMap));
+            }
+
             try {
                 if (propCenter.sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
@@ -81,11 +259,11 @@ public abstract class SparkStreamingApp implements Serializable {
                     fs.delete(dir, true);
                     fs.mkdirs(dir);
                 }
-                context.checkpoint(checkpointDir);
+                jssc.checkpoint(checkpointDir);
             } catch (IllegalArgumentException | IOException e) {
                 e.printStackTrace();
             }
-            return context;
+            return jssc;
         }, new Configuration(), true);
     }
 
@@ -93,14 +271,14 @@ public abstract class SparkStreamingApp implements Serializable {
      * Start the application.
      */
     public void start() {
-        streamingContext.start();
+        jssc.start();
     }
 
     /**
      * Stop the application.
      */
     public void stop() {
-        streamingContext.stop();
+        jssc.stop();
     }
 
     /**
@@ -108,7 +286,7 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     public void awaitTermination() {
         try {
-            streamingContext.awaitTermination();
+            jssc.awaitTermination();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -116,8 +294,8 @@ public abstract class SparkStreamingApp implements Serializable {
 
     @Override
     protected void finalize() throws Throwable {
-        if (streamingContext != null) {
-            streamingContext.close();
+        if (jssc != null) {
+            jssc.close();
         }
         super.finalize();
     }

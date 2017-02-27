@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,25 +13,24 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.common;
 
 /**
- * Enumeration of data types that can be accepted by applications.
+ * Enumeration of data types that can be outputted or accepted by applications.
  *
  * Created by ken.yu on 16-10-27.
  */
-public enum DataTypes {
-    ATTR,
+public enum DataType {
+    ATTRIBUTES,
     COMMAND,
     IDRANK,
     TRACKLET,
     TRACKLET_ID,
     TRACKLET_ATTR,
     URL,
-    PLAIN_TEXT,
-    RAW_VIDEO_FRAG_BYTES,
+    FRAME_ARRAY,
     /**
      * Login parameters for web cameras.
      *

@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.util;
 
@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * The class Singleton manages singletons of any types.
  *
- * @param <T> The INPUT_TYPE of the object.
+ * @param <T> The type of the object.
  * @author Ken Yu, CRIPAC, 2016
  */
 public class Singleton<T> implements Serializable {
@@ -35,7 +35,7 @@ public class Singleton<T> implements Serializable {
     /**
      * Lazy-evaluated instance pool of all the classes.
      */
-    private static volatile Map<String, Object> instancePool = null;
+    private static volatile Map<char[], Object> instancePool = null;
 
     /**
      * Factory for creating a new instance if there is not instance in the pool
@@ -46,10 +46,10 @@ public class Singleton<T> implements Serializable {
     /**
      * Name of class T.
      */
-    private final String typeParameterClass;
+    private final char[] typeParameterClass;
 
     /**
-     * Create a singleton manager of specified class T, and update the instance
+     * Create a singleton of specified class T, and do not update the instance
      * by default.
      *
      * @param objFactory Factory to create new instance of class T when instance of it
@@ -57,7 +57,7 @@ public class Singleton<T> implements Serializable {
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory) throws Exception {
-        this(objFactory, true);
+        this(objFactory, false);
     }
 
     /**
@@ -66,19 +66,18 @@ public class Singleton<T> implements Serializable {
      * @param objFactory       Factory to create new instance of class T when instance of it
      *                         does not exist.
      * @param toUpdateInstance Whether to update the instance in the pool on create of this
-     *                         manager.
+     *                         singleton object.
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
-        this.typeParameterClass = objFactory.produce().getClass().getName();
+        T inst = objFactory.produce();
+        this.typeParameterClass = inst.getClass().getName().toCharArray();
 
         if (toUpdateInstance) {
             checkPool();
             synchronized (Singleton.class) {
-                if (!instancePool.containsKey(typeParameterClass)) {
-                    instancePool.put(typeParameterClass, objFactory.produce());
-                }
+                instancePool.put(typeParameterClass, inst);
             }
         }
     }
@@ -113,6 +112,7 @@ public class Singleton<T> implements Serializable {
             }
         }
 
+        //noinspection unchecked
         return (T) instancePool.get(typeParameterClass);
     }
 }

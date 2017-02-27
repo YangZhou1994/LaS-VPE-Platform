@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,11 +13,12 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.pedestrian.reid;
 
 import com.google.gson.Gson;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
@@ -29,7 +30,6 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -120,7 +120,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
 
     protected Socket socket;
     private Thread resListeningThread = null;
-    private Map<UUID, Float> resultPool = new HashMap<>();
+    private Map<UUID, Float> resultPool = new Object2ObjectOpenHashMap<>();
     private boolean enableFeatureOnly = true;
 
     /**
@@ -243,16 +243,10 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
                 byteBuffer.putInt(tracklet.locationSequence.length);
                 outputStream.write(byteBuffer.array());
                 // Each bounding box.
-                for (BoundingBox box : tracklet.locationSequence) {
+                for (BoundingBox bbox : tracklet.locationSequence) {
                     // 16 bytes - Bounding box data.
-                    byteBuffer = ByteBuffer.allocate(Integer.BYTES * 4);
-                    byteBuffer.putInt(box.x);
-                    byteBuffer.putInt(box.y);
-                    byteBuffer.putInt(box.width);
-                    byteBuffer.putInt(box.height);
-                    outputStream.write(byteBuffer.array());
                     // width * height * 3 bytes - Image data.
-                    outputStream.write(box.patchData);
+                    outputStream.write(bbox.toBytes());
                 }
 
                 // Attributes.

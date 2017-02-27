@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.util.logging;
 
@@ -45,11 +45,7 @@ public class SynthesizedLoggerFactory implements Factory<Logger> {
         this.propCenter = propCenter;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
-     */
+    @Nonnull
     @Override
     public SynthesizedLogger produce() {
         return new SynthesizedLogger(username, propCenter);

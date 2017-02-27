@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,93 +13,116 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.ctrl;
 
+import com.google.gson.Gson;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.cripac.isee.vpe.common.DataTypeNotMatchedException;
-import org.cripac.isee.vpe.common.RecordNotFoundException;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * The TaskData class contains a global execution plan and the execution result
  * of the predecessor node.
- *
- * @author Ken Yu, CRIPAC, 2016
  */
 public class TaskData implements Serializable, Cloneable {
 
     private static final long serialVersionUID = 6817584209784831375L;
+
     /**
-     * Current node to execute.
+     * Current nodes to execute.
      */
-    public ExecutionPlan.Node curNode;
+    public final Map<Stream.Port, ExecutionPlan.Node.Port> destPorts;
+
     /**
      * Global execution plan.
      */
-    public ExecutionPlan executionPlan = null;
+    public final ExecutionPlan executionPlan;
+
+    public final DataType outputType;
+
     /**
      * Result of the predecessor.
      */
-    public Serializable predecessorRes = null;
-    /**
-     * Information of the predecessor stream.
-     */
-    public Stream.Info predecessorInfo = null;
+    public final Serializable predecessorRes;
 
-    /**
-     * Change the current node to be executed.
-     * The node is specified by one of its topic.
-     *
-     * @param topic A topic of the new current node.
-     */
-    public void changeCurNode(@Nonnull Topic topic)
-            throws RecordNotFoundException {
-        predecessorInfo = curNode.streamInfo;
-        curNode = executionPlan.findNode(topic);
+    public ExecutionPlan.Node getCurrentNode(Stream.Port port) {
+        return destPorts.get(port).getNode();
     }
 
-    /**
-     * Create an empty task.
-     */
-    public TaskData() {
-        this.curNode = null;
-        this.executionPlan = null;
+    public ExecutionPlan.Node getCurrentNode(List<Stream.Port> possiblePorts) {
+        for (Stream.Port port : possiblePorts) {
+            final ExecutionPlan.Node node = getCurrentNode(port);
+            if (node != null) {
+                return node;
+            }
+        }
+        return null;
     }
 
     /**
      * Create a task with an execution plan with no predecessor result.
      *
-     * @param curNode       Current node to execute.
+     * @param destPorts     Destination ports of this TaskData.
      * @param executionPlan A global execution plan.
      */
-    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+    public TaskData(@Nonnull Collection<ExecutionPlan.Node.Port> destPorts,
                     @Nonnull ExecutionPlan executionPlan) {
-        this.curNode = curNode;
-        this.executionPlan = executionPlan;
+        this(destPorts, executionPlan, null);
     }
 
     /**
      * Create a task with an execution plan with predecessor result.
      *
-     * @param curNode        Current node to execute.
+     * @param destPort      Destination port of this TaskData.
+     * @param executionPlan A global execution plan.
+     */
+    public TaskData(@Nonnull ExecutionPlan.Node.Port destPort,
+                    @Nonnull ExecutionPlan executionPlan) {
+        this(destPort, executionPlan, null);
+    }
+
+    /**
+     * Create a task with an execution plan with predecessor result.
+     *
+     * @param destPort       Destination port of this TaskData.
      * @param executionPlan  A global execution plan.
      * @param predecessorRes Result of the predecessor node,
      *                       which is a serializable object.
      */
-    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+    public TaskData(@Nonnull ExecutionPlan.Node.Port destPort,
                     @Nonnull ExecutionPlan executionPlan,
-                    @Nonnull Serializable predecessorRes) {
-        this.curNode = curNode;
+                    @Nullable Serializable predecessorRes) {
+        this(Collections.singleton(destPort), executionPlan, predecessorRes);
+    }
+
+    /**
+     * Create a task with an execution plan with predecessor result.
+     *
+     * @param destPorts      Destination ports of this TaskData.
+     * @param executionPlan  A global execution plan.
+     * @param predecessorRes Result of the predecessor node,
+     *                       which is a serializable object.
+     */
+    public TaskData(@Nonnull Collection<ExecutionPlan.Node.Port> destPorts,
+                    @Nonnull ExecutionPlan executionPlan,
+                    @Nullable Serializable predecessorRes) {
+        this.destPorts = new Object2ObjectOpenHashMap<>();
+        Optional<DataType> outputTypeOptional =
+                destPorts.stream().map(port -> port.prototype.inputType).reduce((dataType1, dataType2) -> {
+                    assert dataType1 == dataType2;
+                    return dataType1;
+                });
+        assert outputTypeOptional.isPresent();
+        outputType = outputTypeOptional.get();
+        destPorts.forEach(port -> this.destPorts.put(port.prototype, port));
         this.executionPlan = executionPlan;
         this.predecessorRes = predecessorRes;
     }
@@ -111,9 +134,7 @@ public class TaskData implements Serializable, Cloneable {
      */
     @Override
     public String toString() {
-        return "|TaskData-node=" + curNode.getStreamInfo()
-                + "-ExecutionPlan=" + executionPlan + "-PredecessorRes=\n"
-                + predecessorRes + "|";
+        return new Gson().toJson(this);
     }
 
     /**
@@ -130,86 +151,21 @@ public class TaskData implements Serializable, Cloneable {
         /**
          * Map for finding nodes according to the class of its module.
          */
-        private Map<Stream.Info, Node> nodes = new Object2ObjectOpenHashMap<>();
+        private Map<Integer, Node> nodes = new Object2ObjectOpenHashMap<>();
 
-        /**
-         * Find a node in the execution plan by topic.
-         *
-         * @param topic A topic of the node.
-         * @return The node possessing the topic.
-         */
-        public Node findNode(@Nonnull Topic topic)
-                throws RecordNotFoundException {
-            if (topic.STREAM_INFO == null) {
-                throw new RecordNotFoundException("The topic " + topic
-                        + " has no stream information!");
-            } else {
-                return findNode(topic.STREAM_INFO);
-            }
-        }
-
-        /**
-         * Find a node in the execution plan by stream's information.
-         *
-         * @param info Information of the stream.
-         * @return The node representing the stream.
-         */
-        public Node findNode(@Nonnull Stream.Info info)
-                throws RecordNotFoundException {
-            if (!nodes.containsKey(info)) {
-                StringBuilder builder = new StringBuilder(info
-                        + " cannot be found in execution plan!"
-                        + " Available streams are: ");
-                for (Stream.Info _info : nodes.keySet()) {
-                    builder.append(_info + " ");
-                }
-                throw new RecordNotFoundException(builder.toString());
-            }
-            return nodes.get(info);
-        }
+        private int nodeIDCounter = 0;
 
         /**
          * Combine two execution plans. If a node is marked executed in either
          * plan, the corresponding node in the combined plan is also marked
-         * executed. Otherwise, nodes or execution data of nodes existing in
-         * either plan will appear in the execution plan.
+         * executed.
          *
-         * @param a A plan.
-         * @param b Another plan.
-         * @return A combined execution plan.
+         * @param planToCombine Another plan to combine on this plan.
          */
-        public static ExecutionPlan combine(@Nonnull ExecutionPlan a,
-                                            @Nonnull ExecutionPlan b) {
-            ExecutionPlan combined = new ExecutionPlan();
-
-            for (Stream.Info info : a.nodes.keySet()) {
-                combined.addNode(info, a.nodes.get(info));
-            }
-            for (Stream.Info info : b.nodes.keySet()) {
-                if (!combined.nodes.containsKey(info)) {
-                    combined.addNode(info, b.nodes.get(info));
-                } else {
-                    if (combined.nodes.get(info).execData == null
-                            && b.nodes.get(info).execData != null) {
-                        combined.nodes.get(info).execData = b.nodes.get(info).execData;
-                    }
-                }
-            }
-
-            for (Stream.Info info : combined.nodes.keySet()) {
-                if (a.nodes.get(info).executed || b.nodes.get(info).executed) {
-                    combined.nodes.get(info).markExecuted();
-                }
-            }
-
-            return combined;
-        }
-
-        /**
-         * @return The number of nodes.
-         */
-        public int getNumNodes() {
-            return nodes.size();
+        public void combine(@Nonnull ExecutionPlan planToCombine) {
+            planToCombine.nodes.values().stream()
+                    .filter(Node::isExecuted)
+                    .forEach(node -> this.nodes.get(node.id).markExecuted());
         }
 
         /*
@@ -219,62 +175,33 @@ public class TaskData implements Serializable, Cloneable {
          */
         @Override
         public String toString() {
-            return "|ExecutionPlan-" + getNumNodes() + " nodes|";
-        }
-
-        /**
-         * Create a link from a head node to a tail node.
-         * If the tail node has not been added to the execution plan,
-         * it will be automatically added here with no execution data.
-         *
-         * @param headNode      The head node.
-         * @param tailNodeTopic Input topic of the tail node.
-         */
-        public void letNodeOutputTo(@Nonnull Node headNode,
-                                    @Nonnull Topic tailNodeTopic) throws DataTypeNotMatchedException {
-            if (headNode.getStreamInfo().OUTPUT_TYPE != tailNodeTopic.INPUT_TYPE) {
-                throw new DataTypeNotMatchedException("Output INPUT_TYPE of stream "
-                        + headNode.getStreamInfo() + " does not match with input INPUT_TYPE of topic"
-                        + tailNodeTopic);
-            }
-            if (tailNodeTopic.STREAM_INFO != null && !nodes.containsKey(tailNodeTopic.STREAM_INFO)) {
-                addNode(tailNodeTopic.STREAM_INFO);
-            }
-            headNode.addSuccessor(tailNodeTopic);
+            return new Gson().toJson(this);
         }
 
         /**
          * Add a node to the execution plan. If it has been added previously with no
          * execution data, the new execution data will be added to the previous node.
          *
-         * @param streamInfo Information of the stream of the node.
+         * @param outputType Output data type of the node.
          * @return The new added node.
          */
-        public Node addNode(@Nonnull Stream.Info streamInfo) {
-            return addNode(streamInfo, null);
+        public Node addNode(@Nonnull DataType outputType) {
+            return addNode(outputType, null);
         }
 
         /**
          * Add a node to the execution plan. If it has been added previously with no
          * execution data, the new execution data will be added to the previous node.
          *
-         * @param streamInfo Information of the stream of the node.
+         * @param outputType Output data type of the node.
          * @param execData   Data for execution of the node.
          * @return The new added node.
          */
-        public Node addNode(@Nonnull Stream.Info streamInfo,
-                            @Nullable Serializable execData) {
-            if (!nodes.containsKey(streamInfo)) {
-                Node node = new Node(streamInfo, execData);
-                nodes.put(streamInfo, node);
-                return node;
-            } else {
-                Node node = nodes.get(streamInfo);
-                if (node.execData == null) {
-                    node.execData = execData;
-                }
-                return node;
-            }
+        Node addNode(@Nonnull DataType outputType,
+                     @Nullable Serializable execData) {
+            Node node = new Node(nodeIDCounter++, outputType, execData);
+            nodes.put(node.id, node);
+            return node;
         }
 
         /**
@@ -288,13 +215,45 @@ public class TaskData implements Serializable, Cloneable {
 
             private static final long serialVersionUID = 4538251384004287468L;
 
+            private ExecutionPlan getPlan() {
+                return ExecutionPlan.this;
+            }
+
+            public void outputTo(Port port) {
+                assert this.getPlan() == port.getNode().getPlan();
+                assert this.outputType == port.prototype.inputType;
+                outputPorts.add(port);
+            }
+
+            /**
+             * IO port of a node. Created from a execution node with a port topic.
+             */
+            public class Port implements Serializable {
+                private static final long serialVersionUID = -762800114750459971L;
+
+                public Node getNode() {
+                    return Node.this;
+                }
+
+                public final Stream.Port prototype;
+
+                public String getName() {
+                    return prototype.name;
+                }
+
+                private Port(Stream.Port prototype) {
+                    this.prototype = prototype;
+                }
+            }
+
             /**
              * Each node has its own successor nodes, each organized in a list.
              * The indexes of the set correspond to that of the nodes.
              */
-            private List<Topic> successorList = new ObjectArrayList<>();
+            private List<Port> outputPorts = new ObjectArrayList<>();
 
-            private final Stream.Info streamInfo;
+            private final int id;
+            final DataType outputType;
 
             /**
              * Marker recording whether the stream in this execution plan
@@ -308,26 +267,21 @@ public class TaskData implements Serializable, Cloneable {
             private Serializable execData = null;
 
             /**
-             * @return Name of the stream of the node.
-             */
-            public Stream.Info getStreamInfo() {
-                return streamInfo;
-            }
-
-            /**
              * @param execData The data for execution, which is a serializable
-             *                 object.
              */
-            public Node(Stream.Info streamInfo, Serializable execData) {
-                this.streamInfo = streamInfo;
+            private Node(int id,
+                         DataType outputType,
+                         @Nullable Serializable execData) {
+                this.id = id;
+                this.outputType = outputType;
                 this.execData = execData;
             }
 
             /**
              * @return Successor nodes of this node.
              */
-            public List<Topic> getSuccessors() {
-                return successorList;
+            public List<Port> getOutputPorts() {
+                return outputPorts;
             }
 
             /**
@@ -349,7 +303,7 @@ public class TaskData implements Serializable, Cloneable {
              */
             private void makeEmpty() {
                 this.execData = null;
-                this.successorList = null;
+                this.outputPorts = null;
             }
 
             /**
@@ -363,13 +317,8 @@ public class TaskData implements Serializable, Cloneable {
                 }
             }
 
-            /**
-             * Add a node to the successor set of this node.
-             *
-             * @param topic An input of the node to add.
-             */
-            private void addSuccessor(Topic topic) {
-                successorList.add(topic);
+            public Port createInputPort(Stream.Port prototype) {
+                return new Port(prototype);
             }
         }
     }

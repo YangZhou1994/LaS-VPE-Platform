@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.util.kafka;
 
@@ -21,7 +21,6 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.cripac.isee.vpe.util.Factory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Properties;
 
 /**
@@ -51,6 +50,7 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
      * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject(java.util.
      * Properties)
      */
+    @Nonnull
     @Override
     public KafkaProducer<K, V> produce() {
         return new KafkaProducer<>(config);

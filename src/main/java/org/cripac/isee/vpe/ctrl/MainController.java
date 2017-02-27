@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,18 +13,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.ctrl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
-import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -35,26 +32,24 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The MainController class initializes the system environment (currently only
- * checks the required topics), and provides entrance to run any spark
- * streaming applications.
+ * The MainController class provides an entrance to run any spark
+ * streaming applications, and listen to their reports.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
 public class MainController {
 
     public static void main(String[] args)
-            throws NoAppSpecifiedException,
-            URISyntaxException,
-            IOException,
-            ParserConfigurationException,
-            SAXException,
-            UnimplementedException {
+            throws URISyntaxException, IOException, ParserConfigurationException, SAXException, UnimplementedException {
         // Analyze the command line and store the options into a system property
         // center.
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
+
+        final AtomicReference<Boolean> running = new AtomicReference<>();
+        running.set(true);
 
         // Prepare system configuration.
         if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {
@@ -62,17 +57,17 @@ public class MainController {
 
             // Create a thread to listen to reports.
             Thread listener = new Thread(() -> {
-                Logger logger = new ConsoleLogger(Level.DEBUG);
                 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
-                        propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), true));
+                        propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), true));
                 ArrayList<String> topicList = new ArrayList<>();
                 for (String appName : propCenter.appsToStart) {
                     topicList.add(appName + "_report");
                 }
                 consumer.subscribe(topicList);
-                while (true) {
-                    ConsumerRecords<String, String> records = consumer.poll(0);
-                    records.forEach(rec -> logger.info(rec.value()));
+                while (running.get()) {
+                    ConsumerRecords<String, String> records = consumer.poll(propCenter.batchDuration);
+                    records.forEach(rec -> System.out.println(rec.value()));
+                    consumer.commitSync();
                 }
             });
             listener.start();
@@ -89,30 +84,35 @@ public class MainController {
 
             List<ProcessWithName> processesWithNames = new LinkedList<>();
             for (String appName : propCenter.appsToStart) {
-                SparkLauncher launcher = propCenter.GetLauncher(appName);
+                try {
+                    SparkLauncher launcher = propCenter.GetSparkLauncher(appName);
 
-                Process launcherProcess = launcher.launch();
-                processesWithNames.add(new ProcessWithName(launcherProcess, appName));
+                    Process launcherProcess = launcher.launch();
+                    processesWithNames.add(new ProcessWithName(launcherProcess, appName));
 
-                // Create threads listening to output of the launcher process.
-                Thread infoThread = new Thread(
-                        new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO"),
-                        "LogStreamReader info");
-                Thread errorThread = new Thread(
-                        new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR"),
-                        "LogStreamReader error");
-                infoThread.start();
-                errorThread.start();
+                    // Create threads listening to output of the launcher process.
+                    Thread infoThread = new Thread(
+                            new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO", running),
+                            "LogStreamReader info");
+                    Thread errorThread = new Thread(
+                            new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR", running),
+                            "LogStreamReader error");
+                    infoThread.start();
+                    errorThread.start();
+                } catch (NoAppSpecifiedException e) {
+                    e.printStackTrace();
+                }
             }
 
             while (!processesWithNames.isEmpty()) {
                 for (ProcessWithName processWithName : processesWithNames) {
                     try {
-                        boolean exited = processWithName.process.waitFor(
-                                100, TimeUnit.MILLISECONDS);
+                        boolean exited = processWithName.process.waitFor(100, TimeUnit.MILLISECONDS);
                         if (exited) {
                             System.out.println("[INFO]Process " + processWithName.name + "finished! Exit code: "
                                     + processWithName.process.exitValue());
+                            processWithName.process.getInputStream().close();
+                            processWithName.process.getErrorStream().close();
                             processesWithNames.remove(processWithName);
                             break;
                         }
@@ -125,6 +125,7 @@ public class MainController {
             // TODO Complete code for running locally.
             throw new UnimplementedException();
         }
-        System.exit(0);
+
+        running.set(false);
     }
 }

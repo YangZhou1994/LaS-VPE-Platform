@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.pedestrian.tracking;
 
@@ -81,6 +81,7 @@ public class BasicTracker extends Tracker {
      *
      * @see Tracker#track(java.lang.String)
      */
+    @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception {
         // Limit instances on a single node.
@@ -110,10 +111,6 @@ public class BasicTracker extends Tracker {
         frameGrabber.start();
         logger.debug("Initialized video decoder!");
 
-        if (conf == null) {
-            logger.fatal("Configuration file is NULL!");
-            return null;
-        }
         long trackerPointer = initialize(frameGrabber.getImageWidth(), frameGrabber.getImageHeight(), 3, conf);
         logger.debug("Initialized tracker!");
 

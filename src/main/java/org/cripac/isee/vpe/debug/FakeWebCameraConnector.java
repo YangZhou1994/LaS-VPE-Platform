@@ -1,4 +1,4 @@
-package org.cripac.isee.vpe.debug;/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,12 +13,14 @@ package org.cripac.isee.vpe.debug;/*********************************************
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
+package org.cripac.isee.vpe.debug;
 
 import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.Factory;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
@@ -26,9 +28,6 @@ import java.io.PipedOutputStream;
 import java.net.InetAddress;
 import java.util.Random;
 
-/**
- * Created by ken.yu on 16-12-2.
- */
 public class FakeWebCameraConnector extends WebCameraConnector {
 
     public static class FakeWebCameraConnectorFactory implements Factory<WebCameraConnector> {
@@ -49,8 +48,9 @@ public class FakeWebCameraConnector extends WebCameraConnector {
          * @return An object newly produced.
          * @throws Exception On failure creating a new instance.
          */
+        @Nonnull
         @Override
-        public WebCameraConnector produce() throws Exception {
+        public WebCameraConnector produce() {
             return new FakeWebCameraConnector(loginParam);
         }
     }

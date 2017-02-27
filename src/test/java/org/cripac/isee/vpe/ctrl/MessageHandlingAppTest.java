@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,20 +13,21 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
 import java.io.Serializable;
 import java.net.InetAddress;
-import java.util.Hashtable;
 import java.util.Properties;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
@@ -40,6 +41,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class MessageHandlingAppTest implements Serializable {
 
+    private static final long serialVersionUID = 6788686506662339278L;
     private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
@@ -54,7 +56,7 @@ public class MessageHandlingAppTest implements Serializable {
         init(new String[0]);
     }
 
-    public void init(String[] args) throws Exception {
+    private void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter;
         if (args.length > 0) {
             propCenter = new SystemPropertyCenter(args);
@@ -62,9 +64,7 @@ public class MessageHandlingAppTest implements Serializable {
             propCenter = new SystemPropertyCenter();
         }
 
-        TopicManager.checkTopics(propCenter);
-
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
@@ -155,7 +155,7 @@ public class MessageHandlingAppTest implements Serializable {
                 "source_data/video/CAM01/2013-12-23/20131223175916-20131223180508.h264",
         };
 
-        Hashtable<String, Serializable> param = new Hashtable<>();
+        Object2ObjectOpenHashMap<String, Serializable> param = new Object2ObjectOpenHashMap<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
@@ -165,40 +165,40 @@ public class MessageHandlingAppTest implements Serializable {
         for (String url : cam01VideoURLs) {
             param.put(MessageHandlingApp.Parameter.VIDEO_URL, url);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ONLY,
                     serialize(param),
                     producer,
                     logger);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ATTRRECOG,
                     serialize(param),
                     producer,
                     logger);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ATTRRECOG_REID,
                     serialize(param),
                     producer,
                     logger);
         }
 
-        param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
+        param.put(MessageHandlingApp.Parameter.TRACKLET_INDEX, "1");
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.ATTRRECOG_REID,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.REID_ONLY,
                 serialize(param),
                 producer,

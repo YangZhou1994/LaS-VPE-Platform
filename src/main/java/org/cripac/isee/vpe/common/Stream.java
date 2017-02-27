@@ -1,4 +1,4 @@
-/***********************************************************************
+package org.cripac.isee.vpe.common;/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,149 +13,123 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
-package org.cripac.isee.vpe.common;
-
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.function.Function;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.HasOffsetRanges;
-import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.apache.spark.streaming.kafka.OffsetRange;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
+import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Properties;
 
 /**
- * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
+ * A Stream is a flow of DStreams. Each stream outputs at most one type of data.
  * <p>
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
-
     private static final long serialVersionUID = 7965952554107861881L;
+    private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
 
-    /**
-     * The Info class is designed to force the output data INPUT_TYPE to
-     * be assigned to a stream, so that INPUT_TYPE matching checking can
-     * be conducted.
-     */
-    public static class Info implements Serializable {
-        private static final long serialVersionUID = -2859100367977900846L;
-        /**
-         * Name of the stream.
-         */
-        public final String NAME;
+    protected void
+    output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
+           TaskData.ExecutionPlan executionPlan,
+           Serializable result,
+           String taskID) throws Exception {
+        KafkaHelper.sendWithLog(taskID,
+                new TaskData(outputPorts, executionPlan, result),
+                producerSingleton.getInst(),
+                loggerSingleton.getInst());
+    }
 
-        /**
-         * Type of output.
-         */
-        public final DataTypes OUTPUT_TYPE;
-
-        /**
-         * Construct a stream with NAME specified.
-         *
-         * @param name Name of the stream.
-         */
-        public Info(String name, DataTypes outputType) {
-            this.NAME = name;
-            this.OUTPUT_TYPE = outputType;
-        }
-
-        @Override
-        public int hashCode() {
-            return NAME.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return "Topic(name: \'" + NAME + "\', output type: \'" + OUTPUT_TYPE + "\')";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof Info) {
-                assert OUTPUT_TYPE == ((Info) o).OUTPUT_TYPE;
-                return NAME.equals(((Info) o).NAME);
-            } else {
-                return super.equals(o);
-            }
-        }
+    protected JavaPairDStream<String, TaskData>
+    filter(Map<DataType, JavaPairDStream<String, TaskData>> streamMap, Port port) {
+        return streamMap.get(port.inputType)
+                .filter(rec -> (Boolean) rec._2().destPorts.containsKey(port));
     }
 
     protected final Singleton<Logger> loggerSingleton;
 
     /**
-     * Require inputting a logger singleton for this class and all its subclasses.
+     * Initialize necessary components of a Stream object.
      *
-     * @param loggerSingleton A singleton of logger.
+     * @param appName    Enclosing application name.
+     * @param propCenter System property center.
+     * @throws Exception On failure creating singleton.
      */
-    public Stream(@Nonnull Singleton<Logger> loggerSingleton) {
-        this.loggerSingleton = loggerSingleton;
+    public Stream(String appName, SystemPropertyCenter propCenter) throws Exception {
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
+
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
+        producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
     }
 
     /**
-     * Add the stream to a Spark Streaming context.
+     * Add streaming actions to the global {@link TaskData} stream.
+     * This global stream contains pre-deserialized TaskData messages, so as to save time.
      *
-     * @param jssc A Spark Streaming context.
+     * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+     *                        which must be one of the {@link DataType}.
+     *                        The value is a filtered stream.
      */
-    public abstract void addToContext(JavaStreamingContext jssc);
-
-    protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
+    public abstract void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap);
 
     /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream.
+     * Get input ports of the stream.
      *
-     * @param jssc        The streaming context of the applications.
-     * @param kafkaParams Parameters for reading from Kafka.
-     * @param topics      Topics from which the direct stream reads.
-     * @return A Kafka non-receiver input stream.
+     * @return A list of ports.
      */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
-                           @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, String> kafkaParams) {
-        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+    public abstract List<Port> getPorts();
 
-        final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(jssc,
-                String.class, byte[].class,
-                StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet<>(topics))
-                .transformToPair((Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>) rdd -> {
-                    OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-                    offsetRanges.set(offsets);
-                    return rdd;
-                })
-                .repartition(jssc.sparkContext().defaultParallelism());
-        stream.cache();
-        stream.foreachRDD(rdd -> {
-            final Logger logger = loggerSingleton.getInst();
-            boolean hasNewMessages = false;
-            for (OffsetRange o : offsetRanges.get()) {
-                if (o.untilOffset() > o.fromOffset()) {
-                    hasNewMessages = true;
-                    logger.debug("Received {topic=" + o.topic()
-                            + ", partition=" + o.partition()
-                            + ", fromOffset=" + o.fromOffset()
-                            + ", untilOffset=" + o.untilOffset() + "}");
-                }
-            }
-            if (!hasNewMessages) {
-                logger.debug("No new messages!");
-            }
-        });
-        return stream;
+    /**
+     * The class Port represents an input port of a stream.
+     */
+    public static final class Port implements Serializable {
+        private static final long serialVersionUID = -7567029992452814611L;
+        /**
+         * Name of the port.
+         */
+        public final String name;
+        /**
+         * Input data type of the port.
+         */
+        public final DataType inputType;
+
+        /**
+         * Create a port.
+         *
+         * @param name Name of the port.
+         * @param type Input data type of the port.
+         */
+        public Port(@Nonnull String name,
+                    @Nonnull DataType type) {
+            this.name = name;
+            this.inputType = type;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return (o instanceof Port) ? name.equals(((Port) o).name) : super.equals(o);
+        }
     }
 }

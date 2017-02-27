@@ -1,27 +1,23 @@
-/**
+/*
  * This file is part of LaS-VPE Platform.
- * <p>
+ *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * <p>
+ *
  * LaS-VPE Platform is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- * <p>
- * Created by ken.yu on 16-10-9.
- */
-
-/**
- * Created by ken.yu on 16-10-9.
  */
 
 package org.cripac.isee.vpe.util.tracking;
+
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,7 +32,7 @@ import java.util.stream.Collectors;
  */
 public class DirectoryHierarchy {
     private String name;
-    private Map<String, DirectoryHierarchy> subHierarchy = new HashMap<>();
+    private Map<String, DirectoryHierarchy> subHierarchy = new Object2ObjectOpenHashMap<>();
     private Set<String> files = new HashSet<>();
     private DirectoryHierarchy parent = null;
 
@@ -106,7 +102,7 @@ public class DirectoryHierarchy {
         if (parent == null) {
             return list;
         } else {
-            return parent.wrapUpperHierarchies(list.stream()
+            return parent.wrapUpperHierarchies(list.parallelStream()
                     .map(descriptor -> descriptor.wrap(name))
                     .collect(Collectors.toList()));
         }
@@ -114,13 +110,13 @@ public class DirectoryHierarchy {
 
     private List<FileDescriptor> gatherLowerFiles() {
         // Create a list with descriptors of files in current hierarchy.
-        List<FileDescriptor> gathered = files.stream()
+        List<FileDescriptor> gathered = files.parallelStream()
                 .map(FileDescriptor::new)
                 .collect(Collectors.toList());
 
         // Add files in sub-hierarchies after wrapping them.
         for (DirectoryHierarchy subgroup : subHierarchy.values()) {
-            gathered = subgroup.gatherLowerFiles().stream()
+            gathered = subgroup.gatherLowerFiles().parallelStream()
                     .map(fileDescriptor -> fileDescriptor.wrap(subgroup.name))
                     .collect(Collectors.toList());
         }

@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,10 +13,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.util;
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
@@ -28,8 +29,8 @@ public interface Factory<T> extends Serializable {
     /**
      * Produce a new object.
      *
-     * @return An object newly produced.
-     * @throws Exception On failure creating a new instance.
+     * @return An object newly produced. Returns null on failure.
      */
+    @Nonnull
     T produce() throws Exception;
 }

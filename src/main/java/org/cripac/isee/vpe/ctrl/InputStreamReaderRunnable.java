@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.vpe.ctrl;
 
@@ -22,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The InputStreamReaderRunnable class is designed for running a thread
@@ -35,6 +36,8 @@ public class InputStreamReaderRunnable implements Runnable {
 
     private String name;
     private boolean isErrStream = false;
+    @Nonnull
+    private final AtomicReference<Boolean> running;
 
     /**
      * Create a thread to read from a input stream and print it to the console.
@@ -43,10 +46,12 @@ public class InputStreamReaderRunnable implements Runnable {
      * @param name The NAME of the stream.
      */
     public InputStreamReaderRunnable(@Nonnull InputStream is,
-                                     @Nonnull String name) {
+                                     @Nonnull String name,
+                                     @Nonnull AtomicReference<Boolean> running) {
         this.reader = new BufferedReader(new InputStreamReader(is));
         this.name = name;
         isErrStream = name.toLowerCase().contains("error");
+        this.running = running;
     }
 
     /*
@@ -58,7 +63,7 @@ public class InputStreamReaderRunnable implements Runnable {
     public void run() {
         try {
             String line = reader.readLine();
-            while (line != null) {
+            while (running.get() && line != null) {
                 if (isErrStream) {
                     System.err.println("[" + name + "]" + line);
                 } else {

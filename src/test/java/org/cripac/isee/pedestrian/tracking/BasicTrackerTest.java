@@ -1,4 +1,4 @@
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 package org.cripac.isee.pedestrian.tracking;
 
@@ -22,7 +22,6 @@ import org.apache.log4j.Level;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Assert;
-import org.junit.Test;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -31,7 +30,7 @@ import java.io.InputStream;
  * Created by ken.yu on 16-10-23.
  */
 public class BasicTrackerTest {
-    @Test
+    //    @Test
     public void initialize() throws Exception {
         System.out.println("Performing memory leak test...");
 
