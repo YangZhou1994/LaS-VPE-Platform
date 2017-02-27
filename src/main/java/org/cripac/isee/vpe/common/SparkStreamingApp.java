@@ -18,10 +18,7 @@
 package org.cripac.isee.vpe.common;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import kafka.admin.AdminUtils;
 import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -40,6 +37,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -100,24 +98,15 @@ public abstract class SparkStreamingApp implements Serializable {
                 .reduce("", (s1, s2) -> s1 + ", " + s2));
 
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+        final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+                propCenter.zkSessionTimeoutMs,
+                propCenter.zkConnectionTimeoutMS);
 
         for (DataType type : dataTypes) {
-            if (!AdminUtils.topicExists(zkUtils, type.name())) {
-                // AdminUtils.createTopic(zkClient, topic,
-                // propCenter.kafkaNumPartitions,
-                // propCenter.kafkaReplFactor, new Properties());
-                logger.info("Creating topic: " + type);
-                kafka.admin.TopicCommand.main(
-                        new String[]{
-                                "--create",
-                                "--zookeeper", propCenter.zkConn,
-                                "--topic", type.name(),
-                                "--partitions", "" + propCenter.kafkaNumPartitions,
-                                "--replication-factor", "" + propCenter.kafkaReplFactor});
-            }
+            KafkaHelper.createTopicIfNotExists(zkUtils,
+                    type.name(),
+                    propCenter.kafkaNumPartitions,
+                    propCenter.kafkaReplFactor);
         }
 
         logger.info("Topics checked!");
@@ -132,7 +121,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * array values from Kafka with direct stream.
      *
      * @param acceptingTypes Data types the stream accepts.
-     * @param toRepartition Whether to repartition the RDDs.
+     * @param toRepartition  Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
@@ -225,9 +214,12 @@ public abstract class SparkStreamingApp implements Serializable {
         String checkpointDir = propCenter.checkpointRootDir + "/" + appName;
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
             // Load default Spark configurations.
-            SparkConf sparkConf = new SparkConf(true);
-            // Register custom classes with Kryo.
-            sparkConf.registerKryoClasses(new Class[]{TaskData.class, DataType.class});
+            SparkConf sparkConf = new SparkConf(true)
+                    // Register custom classes with Kryo.
+                    .registerKryoClasses(new Class[]{TaskData.class, DataType.class})
+                    // Set maximum number of messages per second that each partition will accept
+                    // in the direct Kafka input stream.
+                    .set("spark.streaming.kafka.maxRatePerPartition", propCenter.kafkaMaxRatePerPartition);
             // Create contexts.
             JavaSparkContext sc = new JavaSparkContext(sparkConf);
             sc.setLocalProperty("spark.scheduler.pool", "vpe");

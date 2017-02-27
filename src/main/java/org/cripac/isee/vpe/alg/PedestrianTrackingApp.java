@@ -25,7 +25,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
@@ -38,11 +40,17 @@ import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
+import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -69,7 +77,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * @param propCenter A class saving all the properties this application may need.
      * @throws Exception Any exception that might occur during execution.
      */
-    public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
+    public PedestrianTrackingApp(AppPropertyCenter propCenter) throws Exception {
         super(propCenter, APP_NAME);
 
         registerStreams(Arrays.asList(
@@ -83,13 +91,36 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
+        AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
         app.initialize();
         app.start();
         app.awaitTermination();
+    }
+
+    public static class AppPropertyCenter extends SystemPropertyCenter {
+
+        private static final long serialVersionUID = -786439769732467646L;
+        // Max length of a tracklet to output to Kafka.
+        // If a tracklet has length exceeding this limit, it will be stored to
+        // HDFS first, then its URL is instead sent to Kafka.
+        // 0 means not limited.
+        int maxTrackletLengthToKafka = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws SAXException, ParserConfigurationException, URISyntaxException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.max.tracklet.length":
+                        maxTrackletLengthToKafka = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -155,7 +186,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
-        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws Exception {
+        public RTVideoStreamTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
             connectorPool = new Object2ObjectOpenHashMap<>();
@@ -167,26 +198,29 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            // Recover data.
-                            final String taskID = kv._1();
-                            final TaskData taskData = kv._2();
-                            final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
+                            // TODO(Ken Yu): Wrap less codes inside RobustExecutor.
+                            new RobustExecutor<Void, Void>(() -> {
+                                // Recover data.
+                                final String taskID = kv._1();
+                                final TaskData taskData = kv._2();
+                                final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
-                            final WebCameraConnector cameraConnector;
-                            if (connectorPool.containsKey(loginParam.serverID)) {
-                                cameraConnector = connectorPool.get(loginParam.serverID).getInst();
-                            } else {
-                                final Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                        new Singleton<>(new FakeWebCameraConnector
-                                                .FakeWebCameraConnectorFactory(loginParam));
-                                connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
-                                cameraConnector = cameraConnectorSingleton.getInst();
-                            }
+                                final WebCameraConnector cameraConnector;
+                                if (connectorPool.containsKey(loginParam.serverID)) {
+                                    cameraConnector = connectorPool.get(loginParam.serverID).getInst();
+                                } else {
+                                    final Singleton<WebCameraConnector> cameraConnectorSingleton =
+                                            new Singleton<>(new FakeWebCameraConnector
+                                                    .FakeWebCameraConnectorFactory(loginParam));
+                                    connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
+                                    cameraConnector = cameraConnectorSingleton.getInst();
+                                }
 
-                            // Connect to camera.
-                            final InputStream rtVideoStream = cameraConnector.getStream();
-                            // TODO(Ken Yu): Perform tracking on the real-time video stream.
-                            throw new NotImplementedException("Real-time video stream is under development");
+                                // Connect to camera.
+                                final InputStream rtVideoStream = cameraConnector.getStream();
+                                // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                                throw new NotImplementedException("Real-time video stream is under development");
+                            }).execute();
                         } catch (Throwable t) {
                             logger.error("On processing real-time video stream", t);
                         }
@@ -213,10 +247,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6738652169567844016L;
 
         private final Singleton<FileSystem> hdfsSingleton;
+        private final int maxLengthTrackletToKafka;
+        private final String metadataDir;
 
-        public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
+        public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
+            maxLengthTrackletToKafka = propCenter.maxTrackletLengthToKafka;
+            metadataDir = propCenter.metadataDir;
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
 
@@ -229,59 +267,86 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         hdfsSingleton.getInst(),
                                         loggerSingleton.getInst());
 
-                        rdd.foreach(kv -> {
+                        rdd.glom().foreach(kvList -> {
                             final Logger logger = loggerSingleton.getInst();
-                            try {
-                                final String taskID = kv._1();
-                                final TaskData taskData = kv._2();
-
-                                final String videoURL = (String) taskData.predecessorRes;
-                                logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
-
-                                final Path videoPath = new Path(videoURL);
-                                final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
-                                String videoName = videoPath.getName();
-                                videoName = videoName.substring(0, videoName.lastIndexOf('.'));
-
-                                // Find current node.
-                                final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
-                                // Get tracking configuration for this execution.
-                                final String confFile = (String) curNode.getExecData();
-                                if (confFile == null) {
-                                    logger.error("Tracking configuration file is not specified for this node!");
-                                    return;
-                                }
-
-                                // Get ports to output to.
-                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                // Mark the current node as executed in advance.
-                                curNode.markExecuted();
-
-                                // Load tracking configuration to create a tracker.
-                                if (!confPool.getValue().containsKey(confFile)) {
-                                    throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
-                                }
-                                final byte[] confBytes = confPool.getValue().get(confFile);
-                                if (confBytes == null) {
-                                    logger.fatal("confPool contains key " + confFile + " but value is null!");
-                                    return;
-                                }
-                                final Tracker tracker = new BasicTracker(confBytes, logger);
-                                //Tracker tracker = new FakePedestrianTracker();
-
-                                // Conduct tracking on video read from HDFS.
-                                logger.debug("Performing tracking on " + videoName);
-                                final Tracklet[] tracklets = tracker.track(videoStream);
-                                logger.debug("Finished tracking on " + videoName);
-
-                                // Set video IDs and Send tracklets.
-                                for (Tracklet tracklet : tracklets) {
-                                    tracklet.id.videoID = videoName;
-                                    output(outputPorts, taskData.executionPlan, tracklet, taskID);
-                                }
-                            } catch (Throwable e) {
-                                logger.error("During tracking.", e);
+                            if (kvList.size() > 0) {
+                                logger.info("Partition " + TaskContext.getPartitionId()
+                                        + " got " + kvList.size()
+                                        + " videos in this batch.");
                             }
+
+                            kvList.forEach(kv -> {
+                                try {
+                                    final String taskID = kv._1();
+                                    final TaskData taskData = kv._2();
+
+                                    final String videoURL = (String) taskData.predecessorRes;
+                                    logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
+
+                                    final Path videoPath = new Path(videoURL);
+                                    final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
+                                    String videoName = videoPath.getName();
+                                    videoName = videoName.substring(0, videoName.lastIndexOf('.'));
+
+                                    // Find current node.
+                                    final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
+                                    // Get tracking configuration for this execution.
+                                    assert curNode != null;
+                                    final String confFile = (String) curNode.getExecData();
+                                    if (confFile == null) {
+                                        logger.error("Tracking configuration file is not specified for this node!");
+                                        return;
+                                    }
+
+                                    // Get ports to output to.
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                    // Mark the current node as executed in advance.
+                                    curNode.markExecuted();
+
+                                    // Load tracking configuration to create a tracker.
+                                    if (!confPool.getValue().containsKey(confFile)) {
+                                        throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
+                                    }
+                                    final byte[] confBytes = confPool.getValue().get(confFile);
+                                    if (confBytes == null) {
+                                        logger.fatal("confPool contains key " + confFile + " but value is null!");
+                                        return;
+                                    }
+                                    final Tracker tracker = new BasicTracker(confBytes, logger);
+                                    //Tracker tracker = new FakePedestrianTracker();
+
+                                    // Conduct tracking on video read from HDFS.
+                                    logger.debug("Performing tracking on " + videoName);
+                                    final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(
+                                            (Function0<Tracklet[]>) () -> tracker.track(videoStream)
+                                    ).execute();
+                                    logger.debug("Finished tracking on " + videoName);
+
+                                    // Set video IDs and Send tracklets.
+                                    for (Tracklet tracklet : tracklets) {
+                                        tracklet.id.videoID = videoName;
+                                        if (tracklet.locationSequence.length > maxLengthTrackletToKafka) {
+                                            // The tracklet's length exceeds the limit.
+                                            // It is not appropriate to send it to Kafka.
+                                            // Here we first store it into HDFS,
+                                            // then send its URL instead of the tracklet itself.
+                                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                            final String taskRoot = videoRoot + "/" + taskID;
+                                            final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                            HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                            output(outputPorts,
+                                                    taskData.executionPlan,
+                                                    new TrackletOrURL(storeDir),
+                                                    taskID);
+                                        } else {
+                                            output(outputPorts, taskData.executionPlan,
+                                                    new TrackletOrURL(tracklet), taskID);
+                                        }
+                                    }
+                                } catch (Throwable e) {
+                                    logger.error("During tracking.", e);
+                                }
+                            });
                         });
                     });
         }
@@ -290,6 +355,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         public List<Port> getPorts() {
             return Collections.singletonList(VIDEO_URL_PORT);
         }
+
     }
 
     @Override

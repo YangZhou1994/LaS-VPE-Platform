@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
@@ -25,12 +26,14 @@ import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -87,7 +90,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         int externAttrRecogServerPort = 0;
-        // Max length of a tracklet to recignize attr from. 0 means not limiting.
+        // Max length of a tracklet to recognize attributes from.
+        // A tracklet with length greater than the limit will be truncated
+        // before performing attribute recognition.
+        // 0 means not limiting.
         int maxTrackletLength = 0;
         Algorithm algorithm = Algorithm.EXT;
 
@@ -103,7 +109,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     case "vpe.ped.attr.ext.port":
                         externAttrRecogServerPort = new Integer((String) entry.getValue());
                         break;
-                    case "vpe.ped.tracking.max.length":
+                    case "vpe.max.tracklet.length":
                         maxTrackletLength = new Integer((String) entry.getValue());
                         break;
                     case "vpe.ped.attr.alg":
@@ -173,14 +179,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
+                        Logger logger = loggerSingleton.getInst();
                         try {
-                            Logger logger = loggerSingleton.getInst();
-
                             String taskID = kv._1();
                             TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Truncate and shrink the tracklet in case it is too large.
                             if (maxTrackletLength > 0
@@ -190,21 +195,25 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                         tracklet.locationSequence.length - maxTrackletLength * increment;
                                 tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
                             }
-                            // Recognize attributes.
-                            Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
+                            // Recognize attributes robustly.
+                            Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
+                                    recognizerSingleton.getInst().recognize(t)
+                            ).execute(tracklet);
+
                             logger.debug("Attributes retrieved for task " + taskID + "!");
                             attr.trackletID = tracklet.id;
 
                             // Find current node.
-                            TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(TRACKLET_PORT);
+                            TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
                             // Get ports to output to.
+                            assert curNode != null;
                             List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                             // Mark the current node as executed.
                             curNode.markExecuted();
 
                             output(outputPorts, taskData.executionPlan, attr, taskID);
                         } catch (Exception e) {
-                            loggerSingleton.getInst().error("During processing attributes.", e);
+                            logger.error("During processing attributes.", e);
                         }
                     }));
         }
