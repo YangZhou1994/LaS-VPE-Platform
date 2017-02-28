@@ -35,7 +35,7 @@ public class URL_Test_Saving {
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "ktask-nod1:9092,ktask-nod2:9092,ktask-nod3:9092,ktask-nod4:9092");
         producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, 100000000);
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,ByteArrayDeserializer.class);
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,ByteArraySerializer.class);
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 100000000);
         producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000);
 
