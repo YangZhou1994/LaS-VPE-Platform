@@ -9,6 +9,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 
@@ -56,8 +57,10 @@ public class URL_Test_Saving {
         Kafka_Url_Test URLTest = new Kafka_Url_Test();
 
         //Tracking in real video.
-        Tracklet[] testTracklets= URLTest.testTracker("src/test/resources/20131220184349-20131220184937.h264");
+        //Tracklet[] testTracklets= URLTest.testTracker("src/test/resources/20131220184349-20131220184937.h264");
 
+        //Test with Fake Tracklets
+        Tracklet[] testTracklets = new FakePedestrianTracker().track(null);
         //begin to counting time
         long startTime = System.currentTimeMillis();
         System.out.print("Start saving at: ");
@@ -67,6 +70,7 @@ public class URL_Test_Saving {
         String sendURL;
 
         for (int i = 0 ; i < 100 ; ++i) {
+            Tracklet testTracklet = testTracklets[i];
             sendURL = "hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i;
             Path URL = new Path("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i);
             //Checking the URL;
@@ -74,7 +78,7 @@ public class URL_Test_Saving {
                 hdfs.mkdirs(URL);
             }
             Kafka_Url_Test.testTrackletsSaving("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i,
-                                        testTracklets[0],
+                                        testTracklet,
                                         hdfs);
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),serialize(sendURL),producer,logger);
         }
