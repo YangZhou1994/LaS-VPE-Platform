@@ -54,16 +54,15 @@ public class URL_Test_Retriving {
         long startTime = System.currentTimeMillis();
         System.out.printf("Consumer is already waiting for Kafka messages at: %d ms !",startTime);
         System.out.println();
-        while(testSample.size() < 100 ){
-            //Waiting for Response
-            while (true) {
+
+        //Waiting for Response
+        while (testSample.size() < 100 ) {
 
                 records = consumer.poll(0);
                 if (records.isEmpty()) {
                     continue;
                 }
-                System.out.printf("Totally got %d URL",testSample.size());
-                System.out.println();
+
                 records.forEach((ConsumerRecord<String, byte[]> rec) -> {
                     TaskData taskData;
                     try {
@@ -78,12 +77,13 @@ public class URL_Test_Retriving {
                         try {
                             assert trackletURL != null;
                             testSample.add(Kafka_Url_Test.testTrackletsRetrieving(trackletURL));
+                            System.out.printf("Totally got %d URL",testSample.size());
+                            System.out.println();
                         } catch (URISyntaxException | IOException e) {
                             e.printStackTrace();
                         }
                     }
                 });
-            }
         }
         long endTime = System.currentTimeMillis();
         System.out.printf("100 Tracklets have been read from HDFS Successfully at: %d ms",endTime);
