@@ -71,7 +71,7 @@ public class URL_Test_Saving {
         String sendURL;
 
         for (int i = 0 ; i < 100 ; ++i) {
-            Tracklet testTracklet = testTracklets[i];
+            Tracklet testTracklet = testTracklets[0];
             sendURL = "user/labadmin/yangzhou/" + i;
             Path URL = new Path("user/labadmin/yangzhou/" + i);
             //Checking the URL;
