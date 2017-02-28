@@ -71,13 +71,13 @@ public class URL_Test_Saving {
 
         for (int i = 0 ; i < 100 ; ++i) {
             Tracklet testTracklet = testTracklets[i];
-            sendURL = "hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i;
-            Path URL = new Path("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i);
+            sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
+            Path URL = new Path("hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i);
             //Checking the URL;
             if (! hdfs.exists(URL)){
                 hdfs.mkdirs(URL);
             }
-            Kafka_Url_Test.testTrackletsSaving("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i,
+            Kafka_Url_Test.testTrackletsSaving("hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i,
                                         testTracklet,
                                         hdfs);
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),serialize(sendURL),producer,logger);
