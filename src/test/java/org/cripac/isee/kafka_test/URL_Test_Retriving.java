@@ -65,6 +65,7 @@ public class URL_Test_Retriving {
                         taskData = deserialize(rec.value());
                     } catch (Exception e) {
                         System.out.println("Error happened during Deserialize!");
+                        e.printStackTrace();
                         return;
                     }
                     if (taskData.destPorts.containsKey(TEST_URL_SAVE_RETRIVE_PORT)) {
