@@ -15,6 +15,7 @@ import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.relaxng.datatype.Datatype;
 
 import java.io.IOException;
+import java.io.SyncFailedException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,7 +62,8 @@ public class URL_Test_Retriving {
                 if (records.isEmpty()) {
                     continue;
                 }
-
+                System.out.printf("Totally got %d URL",testSample.size());
+                System.out.println();
                 records.forEach((ConsumerRecord<String, byte[]> rec) -> {
                     TaskData taskData;
                     try {
