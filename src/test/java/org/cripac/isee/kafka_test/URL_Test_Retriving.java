@@ -87,6 +87,9 @@ public class URL_Test_Retriving {
         }
         long endTime = System.currentTimeMillis();
         System.out.printf("100 Tracklets have been read from HDFS Successfully at: %d ms",endTime);
+        System.out.println();
+        System.out.println();
+        System.out.println();
         //System.out.println(testSample.get(99));
     }
 }
