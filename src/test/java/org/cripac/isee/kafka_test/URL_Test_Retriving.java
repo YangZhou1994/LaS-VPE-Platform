@@ -54,7 +54,7 @@ public class URL_Test_Retriving {
         long startTime = System.currentTimeMillis();
         System.out.printf("Consumer is already waiting for Kafka messages at: %d ms !",startTime);
         System.out.println();
-        while(testSample.size() != 100 ){
+        while(testSample.size() < 100 ){
             //Waiting for Response
             while (true) {
 
