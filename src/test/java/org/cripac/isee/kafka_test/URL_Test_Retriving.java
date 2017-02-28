@@ -16,7 +16,9 @@ import org.relaxng.datatype.Datatype;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -42,12 +44,13 @@ public class URL_Test_Retriving {
         ConsumerRecords<String, byte[]> records;
 
         Kafka_Url_Test URLTest = new Kafka_Url_Test();
-        Tracklet[] testSample = new Tracklet[100];
+
+        ArrayList<Tracklet> testSample = new ArrayList<>();
         //Receiving URL from Kafka
         long startTime = System.currentTimeMillis();
         System.out.printf("Consumer is already waiting for Kafka messages at: %ld ms !",startTime);
         System.out.println();
-        for(int i = 0 ; i < 100 ; ++i){
+        while(testSample.size() != 100 ){
             //Waiting for Response
             while (true) {
 
@@ -68,7 +71,7 @@ public class URL_Test_Retriving {
                        String trackletURL = (String) taskData.predecessorRes;
                         try {
                             assert trackletURL != null;
-                            testSample[i] = Kafka_Url_Test.testTrackletsRetrieving(trackletURL);
+                            testSample.add(Kafka_Url_Test.testTrackletsRetrieving(trackletURL));
                         } catch (URISyntaxException | IOException e) {
                             e.printStackTrace();
                         }
@@ -78,6 +81,6 @@ public class URL_Test_Retriving {
         }
         long endTime = System.currentTimeMillis();
         System.out.printf("100 Tracklets have been read from HDFS Successfully at: %ld ms",endTime);
-        System.out.println(testSample[99]);
+        System.out.println(testSample.get(99));
     }
 }
