@@ -61,7 +61,7 @@ public class URL_Test_Saving {
         //begin to counting time
         long startTime = System.currentTimeMillis();
         System.out.print("Start saving at: ");
-        System.out.printf("%ld ms",startTime);
+        System.out.printf("%d ms",startTime);
         System.out.println();
 
         String sendURL;
@@ -73,14 +73,14 @@ public class URL_Test_Saving {
             if (! hdfs.exists(URL)){
                 hdfs.mkdirs(URL);
             }
-            URLTest.testTrackletsSaving("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i,
+            Kafka_Url_Test.testTrackletsSaving("hdfs://kman-nod1:8020/user/labadim/yangzhou/" + i,
                                         testTracklets[0],
                                         hdfs);
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),serialize(sendURL),producer,logger);
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving 100 tracklets at: %ld ms",endTime);
+        System.out.printf("Finished saving 100 tracklets at: %d ms",endTime);
         System.out.println();
 
         hdfs.close();

@@ -48,7 +48,7 @@ public class URL_Test_Retriving {
         ArrayList<Tracklet> testSample = new ArrayList<>();
         //Receiving URL from Kafka
         long startTime = System.currentTimeMillis();
-        System.out.printf("Consumer is already waiting for Kafka messages at: %ld ms !",startTime);
+        System.out.printf("Consumer is already waiting for Kafka messages at: %d ms !",startTime);
         System.out.println();
         while(testSample.size() != 100 ){
             //Waiting for Response
@@ -80,7 +80,7 @@ public class URL_Test_Retriving {
             }
         }
         long endTime = System.currentTimeMillis();
-        System.out.printf("100 Tracklets have been read from HDFS Successfully at: %ld ms",endTime);
+        System.out.printf("100 Tracklets have been read from HDFS Successfully at: %d ms",endTime);
         System.out.println(testSample.get(99));
     }
 }
