@@ -27,8 +27,11 @@ import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
  * Created by yang on 17-2-27.
  */
 public class URL_Test_Retriving {
+
+    final static Stream.Port TEST_URL_SAVE_RETRIVE_PORT =
+            new Stream.Port("topicForURLTest", DataType.URL);
+
     public static void main(String[] args){
-        final Stream.Port TEST_URL_SAVE_RETRIVE_PORT= new Stream.Port("topicForURLTest", DataType.URL);
         KafkaConsumer<String, byte[]> consumer;
         ConsoleLogger logger;
         Properties consumerProp = new Properties();

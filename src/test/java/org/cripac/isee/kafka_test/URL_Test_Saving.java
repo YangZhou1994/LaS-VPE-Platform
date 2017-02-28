@@ -9,12 +9,17 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 
 import java.io.IOException;
+
+import static org.cripac.isee.kafka_test.URL_Test_Retriving.TEST_URL_SAVE_RETRIVE_PORT;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import java.net.URI;
 import java.util.Properties;
@@ -57,6 +62,9 @@ public class URL_Test_Saving {
 
         Kafka_Url_Test URLTest = new Kafka_Url_Test();
 
+        Stream.Port VIDEO_URL_PORT =
+                new Stream.Port("topicForURLTest", DataType.URL);
+
         //Tracking in real video.
         //Tracklet[] testTracklets= URLTest.testTracker("src/test/resources/20131220184349-20131220184937.h264");
 
@@ -67,12 +75,13 @@ public class URL_Test_Saving {
         System.out.print("Start saving at: ");
         System.out.printf("%d ms",startTime);
         System.out.println();
-
+        TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
         String sendURL;
 
         for (int i = 0 ; i < 100 ; ++i) {
             Tracklet testTracklet = testTracklets[0];
             sendURL = "user/labadmin/yangzhou/" + i;
+
             Path URL = new Path("user/labadmin/yangzhou/" + i);
             //Checking the URL;
             if (! hdfs.exists(URL)){
@@ -81,7 +90,10 @@ public class URL_Test_Saving {
             Kafka_Url_Test.testTrackletsSaving("user/labadmin/yangzhou/" + i,
                                         testTracklet,
                                         hdfs);
-            sendWithLog("topicForURLTest",UUID.randomUUID().toString(),serialize(sendURL),producer,logger);
+            TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
+            sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
+                    serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
+                            executionPlan,sendURL)),producer,logger);
         }
 
         long endTime = System.currentTimeMillis();
