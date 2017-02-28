@@ -56,7 +56,7 @@ public class URL_Test_Retriving {
         System.out.println();
 
         //Waiting for Response
-        while (testSample.size() < 100 ) {
+        while (testSample.size() < 1000 ) {
 
                 records = consumer.poll(0);
                 if (records.isEmpty()) {

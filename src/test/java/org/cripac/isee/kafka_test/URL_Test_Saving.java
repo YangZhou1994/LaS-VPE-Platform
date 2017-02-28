@@ -78,7 +78,7 @@ public class URL_Test_Saving {
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
         String sendURL;
 
-        for (int i = 0 ; i < 100 ; ++i) {
+        for (int i = 0 ; i < 1000 ; ++i) {
             Tracklet testTracklet = testTracklets[0];
             sendURL = "user/labadmin/yangzhou/" + i;
 
