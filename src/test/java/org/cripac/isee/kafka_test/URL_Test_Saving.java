@@ -25,7 +25,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * Created by yang on 17-2-27.
  */
 public class URL_Test_Saving {
-    public static void main(String[] arg) throws Exception {
+    public static void main(String[] args) throws Exception {
         KafkaProducer<String, byte[]> producer;
         ConsoleLogger logger;
 
