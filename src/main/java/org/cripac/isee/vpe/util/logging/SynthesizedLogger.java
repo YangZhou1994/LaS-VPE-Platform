@@ -17,26 +17,23 @@
 
 package org.cripac.isee.vpe.util.logging;
 
-import kafka.admin.AdminUtils;
 import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 
 import javax.annotation.Nonnull;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * The SynthesizedLogger class synthesizes various logging methods, like log4j,
@@ -60,20 +57,19 @@ public class SynthesizedLogger extends Logger {
     }
 
     private void checkTopic(String topic, SystemPropertyCenter propCenter) {
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
-        if (!AdminUtils.topicExists(zkUtils, topic)) {
-            // AdminUtils.createTopic(zkClient, topic,
-            // propCenter.kafkaNumPartitions,
-            // propCenter.kafkaReplFactor, new Properties());
-            kafka.admin.TopicCommand.main(
-                    new String[]{
-                            "--create",
-                            "--zookeeper", propCenter.zkConn,
-                            "--topic", topic,
-                            "--partitions", "" + propCenter.kafkaNumPartitions,
-                            "--replication-factor", "" + propCenter.kafkaReplFactor});
+        try {
+            new RobustExecutor<Void, Void>(() -> {
+                final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+                        propCenter.zkSessionTimeoutMs,
+                        propCenter.zkConnectionTimeoutMS);
+                KafkaHelper.createTopicIfNotExists(zkUtils,
+                        topic,
+                        propCenter.kafkaNumPartitions,
+                        propCenter.kafkaReplFactor);
+            }).execute();
+        } catch (Exception e) {
+            log4jLogger.error("Cannot create topic " + topic + "! "
+                    + "Reports may not be able to be sent to listener through Kafka.", e);
         }
     }
 
@@ -109,13 +105,15 @@ public class SynthesizedLogger extends Logger {
     }
 
     private void send(@Nonnull String message) {
-        Future<RecordMetadata> metadataFuture =
-                producer.send(new ProducerRecord<>(reportTopic, username, message));
         try {
-            RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
-            consoleLogger.debug("Report sent to " + recordMetadata.topic() + ":" + recordMetadata.partition()
-                    + "-" + recordMetadata.offset());
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            new RobustExecutor<Void, Void>(() -> {
+                Future<RecordMetadata> metadataFuture =
+                        producer.send(new ProducerRecord<>(reportTopic, username, message));
+                RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
+                consoleLogger.debug("Report sent to "
+                        + recordMetadata.topic() + ":" + recordMetadata.partition() + "-" + recordMetadata.offset());
+            }).execute();
+        } catch (Exception e) {
             consoleLogger.error("Error on sending report", e);
         }
     }

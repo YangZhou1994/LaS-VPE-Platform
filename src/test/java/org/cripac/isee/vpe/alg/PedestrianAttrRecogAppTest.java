@@ -17,10 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
-import kafka.admin.AdminUtils;
 import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -32,6 +29,7 @@ import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
@@ -92,23 +90,14 @@ public class PedestrianAttrRecogAppTest {
     private void checkTopic(String topic) {
         Logger logger = new ConsoleLogger(Level.DEBUG);
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn);
+        final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+                propCenter.zkSessionTimeoutMs,
+                propCenter.zkConnectionTimeoutMS);
         logger.info("Checking topic: " + topic);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
-        if (!AdminUtils.topicExists(zkUtils, topic)) {
-            // AdminUtils.createTopic(zkClient, topic,
-            // propCenter.kafkaNumPartitions,
-            // propCenter.kafkaReplFactor, new Properties());
-            logger.info("Creating topic: " + topic);
-            kafka.admin.TopicCommand.main(
-                    new String[]{
-                            "--create",
-                            "--zookeeper", propCenter.zkConn,
-                            "--topic", topic,
-                            "--partitions", "" + propCenter.kafkaNumPartitions,
-                            "--replication-factor", "" + propCenter.kafkaReplFactor});
-        }
+        KafkaHelper.createTopicIfNotExists(zkUtils,
+                topic,
+                propCenter.kafkaNumPartitions,
+                propCenter.kafkaReplFactor);
     }
 
     @Before
