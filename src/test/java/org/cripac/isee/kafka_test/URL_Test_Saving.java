@@ -71,8 +71,8 @@ public class URL_Test_Saving {
 
         for (int i = 0 ; i < 100 ; ++i) {
             Tracklet testTracklet = testTracklets[i];
-            sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
-            Path URL = new Path("hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i);
+            sendURL = "hdfs:///kman-nod1:8020/user/labadmin/yangzhou/" + i;
+            Path URL = new Path("hdfs:///kman-nod1:8020/user/labadmin/yangzhou/" + i);
             //Checking the URL;
             if (! hdfs.exists(URL)){
                 hdfs.mkdirs(URL);
