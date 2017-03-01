@@ -97,7 +97,7 @@ public class URL_Test_Saving {
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving 100 tracklets at: %d ms",endTime);
+        System.out.printf("Finished saving 1000 tracklets at: %d ms",endTime);
         System.out.println();
 
         hdfs.close();

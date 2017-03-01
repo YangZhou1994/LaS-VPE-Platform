@@ -77,8 +77,8 @@ public class URL_Test_Retriving {
                         try {
                             assert trackletURL != null;
                             testSample.add(Kafka_Url_Test.testTrackletsRetrieving(trackletURL));
-                            //System.out.printf("Totally got %d URL",testSample.size());
-                            //System.out.println();
+                            System.out.printf("Totally got %d URL",testSample.size());
+                            System.out.println();
                         } catch (URISyntaxException | IOException e) {
                             e.printStackTrace();
                         }
@@ -90,6 +90,6 @@ public class URL_Test_Retriving {
         System.out.println();
         System.out.println();
         System.out.println();
-        //System.out.println(testSample.get(99));
+        System.out.println(testSample.get(99));
     }
 }
