@@ -1,37 +1,31 @@
 package org.cripac.isee.kafka_test;
 
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 
 import java.io.IOException;
-
-import static org.cripac.isee.kafka_test.URL_Test_Retriving.TEST_URL_SAVE_RETRIVE_PORT;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import java.net.URI;
 import java.util.Properties;
 import java.util.UUID;
 
+import static org.cripac.isee.kafka_test.TrackLets_Test_Receiving.TEST_Tracklets_SAVE_RETRIVE_PORT;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
-
 /**
- * Created by yang on 17-2-27.
+ * Created by yang on 17-3-1.
  */
-public class URL_Test_Saving {
+public class TrackLets_Test_Sending {
     public static void main(String[] args) throws Exception {
         KafkaProducer<String, byte[]> producer;
         ConsoleLogger logger;
@@ -55,15 +49,10 @@ public class URL_Test_Saving {
                 break;
             }catch (IOException e){
                 System.out.println("Fail to create hdfs connection.");
-                e.printStackTrace();
+
             }
         }
         hdfs = tmpHDFS;
-
-        Kafka_Url_Test URLTest = new Kafka_Url_Test();
-
-        Stream.Port VIDEO_URL_PORT =
-                new Stream.Port("topicForURLTest", DataType.URL);
 
         //Tracking in real video.
         //Tracklet[] testTracklets= URLTest.testTracker("src/test/resources/20131220184349-20131220184937.h264");
@@ -72,28 +61,16 @@ public class URL_Test_Saving {
         Tracklet[] testTracklets = new FakePedestrianTracker().track(null);
         //begin to counting time
         long startTime = System.currentTimeMillis();
-        System.out.print("Start saving at: ");
+        System.out.print("Start sending at: ");
         System.out.printf("%d ms",startTime);
         System.out.println();
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
-        String sendURL;
-
-        for (int i = 0 ; i < 1000 ; ++i) {
+        for (int i = 0 ; i < 100 ; ++i) {
             Tracklet testTracklet = testTracklets[0];
-            sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
-
-            Path URL = new Path(sendURL);
-            //Checking the URL;
-            if (! hdfs.exists(URL)){
-                hdfs.mkdirs(URL);
-            }
-            Kafka_Url_Test.testTrackletsSaving(sendURL + i,
-                                        testTracklet,
-                                        hdfs);
-            TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
-            sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
-                    serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
-                            executionPlan,sendURL)),producer,logger);
+            TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.TRACKLET);
+            sendWithLog("topicForTrackletsS&RTest", UUID.randomUUID().toString(),
+                    serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
+                            executionPlan,new TrackletOrURL(testTracklet))),producer,logger);
         }
 
         long endTime = System.currentTimeMillis();
@@ -105,6 +82,4 @@ public class URL_Test_Saving {
 
 
     }
-
-
 }
