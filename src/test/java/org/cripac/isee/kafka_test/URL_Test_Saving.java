@@ -87,7 +87,7 @@ public class URL_Test_Saving {
             if (! hdfs.exists(URL)){
                 hdfs.mkdirs(URL);
             }
-            Kafka_Url_Test.testTrackletsSaving(sendURL + i,
+            Kafka_Url_Test.testTrackletsSaving(sendURL,
                                         testTracklet,
                                         hdfs);
             TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
