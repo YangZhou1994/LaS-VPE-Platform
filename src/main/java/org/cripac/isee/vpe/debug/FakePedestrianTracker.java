@@ -35,12 +35,15 @@ public class FakePedestrianTracker extends Tracker {
         tracklet.id.videoID = "fake video";
         tracklet.id.serialNumber = -1;
 
-        int appearSpan = random.nextInt(31) + 1;
+        //int appearSpan = random.nextInt(31) + 1;
+        int appearSpan = 60;
         tracklet.locationSequence = new BoundingBox[appearSpan];
         for (int i = 0; i < appearSpan; ++i) {
             BoundingBox bbox = new BoundingBox();
-            bbox.width = random.nextInt(640) + 1;
-            bbox.height = random.nextInt(640) + 1;
+            //bbox.width = random.nextInt(640) + 1;
+            //bbox.height = random.nextInt(640) + 1;
+            bbox.height = 300;
+            bbox.width = 200;
             bbox.x = random.nextInt(bbox.width) + 1;
             bbox.y = random.nextInt(bbox.height) + 1;
             bbox.patchData = new byte[bbox.width * bbox.height * 3];
