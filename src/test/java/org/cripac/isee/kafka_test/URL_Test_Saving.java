@@ -94,9 +94,8 @@ public class URL_Test_Saving {
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
                     serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
                             executionPlan,sendURL)),producer,logger);
-            System.out.println();
-            System.out.printf("Serialized Task: %d bytes",(serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
-                    executionPlan,sendURL))).length);
+            //System.out.println();
+            //System.out.printf("Serialized Task: %d bytes",(serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT), executionPlan,sendURL))).length);
         }
 
         long endTime = System.currentTimeMillis();
