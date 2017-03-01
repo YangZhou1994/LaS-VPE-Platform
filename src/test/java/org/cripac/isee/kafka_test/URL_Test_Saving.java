@@ -55,7 +55,7 @@ public class URL_Test_Saving {
                 break;
             }catch (IOException e){
                 System.out.println("Fail to create hdfs connection.");
-
+                e.printStackTrace();
             }
         }
         hdfs = tmpHDFS;
@@ -80,9 +80,9 @@ public class URL_Test_Saving {
 
         for (int i = 0 ; i < 1000 ; ++i) {
             Tracklet testTracklet = testTracklets[0];
-            sendURL = "user/labadmin/yangzhou/" + i;
+            sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
 
-            Path URL = new Path("user/labadmin/yangzhou/" + i);
+            Path URL = new Path(sendURL);
             //Checking the URL;
             if (! hdfs.exists(URL)){
                 hdfs.mkdirs(URL);

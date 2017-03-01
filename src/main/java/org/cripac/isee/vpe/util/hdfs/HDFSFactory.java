@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.util.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.cripac.isee.vpe.util.Factory;
 
 import javax.annotation.Nonnull;
@@ -38,7 +39,15 @@ public class HDFSFactory implements Factory<FileSystem> {
     @Override
     public FileSystem produce() throws IOException {
         Configuration hdfsConf = new Configuration();
+        hdfsConf.addResource(new Path(System.getenv("HADOOP_HOME") + "/etc/hadoop/core-site.xml"));
         hdfsConf.setBoolean("dfs.support.append", true);
+        hdfsConf.set("fs.hdfs.impl", 
+                org.apache.hadoop.hdfs.DistributedFileSystem.class.getName()
+                    );
+            hdfsConf.set("fs.file.impl",
+                    org.apache.hadoop.fs.LocalFileSystem.class.getName()
+                        );
+        System.out.println("Connecting to " + hdfsConf.getRaw("fs.default.name"));
         return FileSystem.get(hdfsConf);
     }
 }
