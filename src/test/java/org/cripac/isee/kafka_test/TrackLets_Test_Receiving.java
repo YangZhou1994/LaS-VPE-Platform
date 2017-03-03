@@ -79,6 +79,7 @@ public class TrackLets_Test_Receiving {
                         e.printStackTrace();
                     }
                 }
+                System.gc();
             });
         }
         long endTime = System.currentTimeMillis();
