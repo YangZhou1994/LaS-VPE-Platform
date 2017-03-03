@@ -60,8 +60,10 @@ public class TrackLets_Test_Receiving {
 
             records.forEach((ConsumerRecord<String, byte[]> rec) -> {
                 TaskData taskData;
+                String key;
                 try {
                     taskData = deserialize(rec.value());
+                    key = rec.key();
                 } catch (Exception e) {
                     System.out.println("Error happened during Deserialize!");
                     e.printStackTrace();
@@ -70,6 +72,7 @@ public class TrackLets_Test_Receiving {
                 if (taskData.destPorts.containsKey(TEST_Tracklets_SAVE_RETRIVE_PORT)) {
                     try {
                         testSample.add(((TrackletOrURL) taskData.predecessorRes).getTracklet());
+                        System.out.println(key);
                         System.out.printf("Totally got %d Tracklets",testSample.size());
                         System.out.println();
                     } catch (Exception e) {
@@ -79,10 +82,10 @@ public class TrackLets_Test_Receiving {
             });
         }
         long endTime = System.currentTimeMillis();
-        System.out.printf("100 Tracklets have been read from Kafka Successfully at: %d ms",endTime);
+        System.out.printf("%d Tracklets have been read from Kafka Successfully at: %d ms",testSample.size(),endTime);
         System.out.println();
         System.out.println();
         System.out.println();
-        System.out.println(testSample.get(99));
+        //System.out.println(testSample.get(99));
     }
 }

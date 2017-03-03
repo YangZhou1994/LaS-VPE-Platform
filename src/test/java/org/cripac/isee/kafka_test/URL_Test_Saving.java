@@ -80,7 +80,8 @@ public class URL_Test_Saving {
         String sendURL;
         Tracklet testTracklet = testTracklets[0];
         byte[][] serializedData = new byte[1000][];
-        for (int i = 0 ; i < 1000 ; ++i) {
+        int i;
+        for (i = 0 ; i < 1000 ; ++i) {
 
             sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
 
@@ -101,7 +102,7 @@ public class URL_Test_Saving {
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving 1000 tracklets at: %d ms",endTime);
+        System.out.printf("Finished saving %d tracklets at: %d ms",i+1,endTime);
         System.out.println();
         System.out.println();
         System.out.printf("Serialized Task: %d bytes",serializedData[999].length);

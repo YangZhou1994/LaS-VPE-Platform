@@ -67,11 +67,11 @@ public class TrackLets_Test_Sending {
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.TRACKLET);
         Tracklet testTracklet = testTracklets[0];
+        int i;
+        for (i = 0 ; i < 100 ; ++i) {
 
-        for (int i = 0 ; i < 100 ; ++i) {
 
-
-            sendWithLog("topicForTrackletsSRTest", UUID.randomUUID().toString(),
+            sendWithLog("topicForTrackletsSRTest","Tracklet_Deliver_"+i,
                     serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                             executionPlan,new TrackletOrURL(testTracklet))),producer,logger);
             System.out.println();
@@ -79,7 +79,7 @@ public class TrackLets_Test_Sending {
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving 100 tracklets at: %d ms",endTime);
+        System.out.printf("Finished saving %d tracklets at: %d ms",i+1,endTime);
         System.out.println();
         System.out.printf("The size of each serialized TaskData is %d bytes",(serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                 executionPlan,new TrackletOrURL(testTracklet)))).length);
