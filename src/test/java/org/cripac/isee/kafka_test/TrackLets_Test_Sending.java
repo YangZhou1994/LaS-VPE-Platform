@@ -79,7 +79,7 @@ public class TrackLets_Test_Sending {
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving %d tracklets at: %d ms",i+1,endTime);
+        System.out.printf("Finished saving %d tracklets at: %d ms",i,endTime);
         System.out.println();
         System.out.printf("The size of each serialized TaskData is %d bytes",(serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                 executionPlan,new TrackletOrURL(testTracklet)))).length);

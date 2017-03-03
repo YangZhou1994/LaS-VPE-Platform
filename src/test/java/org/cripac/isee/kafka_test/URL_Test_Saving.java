@@ -96,13 +96,13 @@ public class URL_Test_Saving {
 
             serializedData[i] =  serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
                     executionPlan,sendURL));
-            sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
+            sendWithLog("topicForURLTest","Task: Sending URL_"+(i+1),
                     serializedData[i] ,producer,logger);
 
         }
 
         long endTime = System.currentTimeMillis();
-        System.out.printf("Finished saving %d tracklets at: %d ms",i+1,endTime);
+        System.out.printf("Finished saving %d tracklets at: %d ms",i,endTime);
         System.out.println();
         System.out.println();
         System.out.printf("Serialized Task: %d bytes",serializedData[999].length);
