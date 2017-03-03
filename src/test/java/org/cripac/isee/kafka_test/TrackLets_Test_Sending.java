@@ -40,7 +40,7 @@ public class TrackLets_Test_Sending {
 
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
-
+/*
         final FileSystem hdfs;
         FileSystem tmpHDFS;
         while(true){
@@ -53,7 +53,7 @@ public class TrackLets_Test_Sending {
             }
         }
         hdfs = tmpHDFS;
-
+*/
         //Tracking in real video.
         //Tracklet[] testTracklets= URLTest.testTracker("src/test/resources/20131220184349-20131220184937.h264");
 
@@ -80,8 +80,8 @@ public class TrackLets_Test_Sending {
         System.out.printf("Finished saving 100 tracklets at: %d ms",endTime);
         System.out.println();
 
-        hdfs.close();
-        tmpHDFS.close();
+        //hdfs.close();
+        //tmpHDFS.close();
 
 
     }

@@ -70,6 +70,8 @@ public class TrackLets_Test_Receiving {
                 if (taskData.destPorts.containsKey(TEST_Tracklets_SAVE_RETRIVE_PORT)) {
                     try {
                         testSample.add(((TrackletOrURL) taskData.predecessorRes).getTracklet());
+                        System.out.printf("Totally got %d Tracklets",testSample.size());
+                        System.out.println();
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
