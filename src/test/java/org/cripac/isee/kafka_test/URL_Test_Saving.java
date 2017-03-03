@@ -77,9 +77,10 @@ public class URL_Test_Saving {
         System.out.println();
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
         String sendURL;
-
+        Tracklet testTracklet = testTracklets[0];
+        byte[][] serializedData = new byte[1000][];
         for (int i = 0 ; i < 1000 ; ++i) {
-            Tracklet testTracklet = testTracklets[0];
+
             sendURL = "hdfs://kman-nod1:8020/user/labadmin/yangzhou/" + i;
 
             Path URL = new Path(sendURL);
@@ -91,11 +92,13 @@ public class URL_Test_Saving {
                                         testTracklet,
                                         hdfs);
             TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
+            serializedData[i] =  serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
+                    executionPlan,sendURL));
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
-                    serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
-                            executionPlan,sendURL)),producer,logger);
-            //System.out.println();
-            //System.out.printf("Serialized Task: %d bytes",(serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT), executionPlan,sendURL))).length);
+                    serializedData[i] ,producer,logger);
+            System.out.println();
+            System.out.printf("Serialized Task: %d bytes",serializedData[i].length);
+            System.out.println();
         }
 
         long endTime = System.currentTimeMillis();
