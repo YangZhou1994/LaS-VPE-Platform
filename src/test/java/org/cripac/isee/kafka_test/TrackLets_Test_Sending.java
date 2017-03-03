@@ -74,12 +74,16 @@ public class TrackLets_Test_Sending {
             sendWithLog("topicForTrackletsSRTest", UUID.randomUUID().toString(),
                     serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                             executionPlan,new TrackletOrURL(testTracklet))),producer,logger);
+            System.out.println();
+            System.out.printf("%d",i);
         }
 
         long endTime = System.currentTimeMillis();
         System.out.printf("Finished saving 100 tracklets at: %d ms",endTime);
         System.out.println();
-
+        System.out.printf("The size of each serialized TaskData is %d bytes",(serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
+                executionPlan,new TrackletOrURL(testTracklet)))).length);
+        System.out.println();
         //hdfs.close();
         //tmpHDFS.close();
 

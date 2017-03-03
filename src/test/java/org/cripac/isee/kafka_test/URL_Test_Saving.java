@@ -97,15 +97,15 @@ public class URL_Test_Saving {
                     executionPlan,sendURL));
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
                     serializedData[i] ,producer,logger);
-            System.out.println();
-            System.out.printf("Serialized Task: %d bytes",serializedData[i].length);
-            System.out.println();
+
         }
 
         long endTime = System.currentTimeMillis();
         System.out.printf("Finished saving 1000 tracklets at: %d ms",endTime);
         System.out.println();
-
+        System.out.println();
+        System.out.printf("Serialized Task: %d bytes",serializedData[999].length);
+        System.out.println();
         hdfs.close();
         tmpHDFS.close();
 
