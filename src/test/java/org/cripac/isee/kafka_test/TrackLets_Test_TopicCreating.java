@@ -13,7 +13,7 @@ public class TrackLets_Test_TopicCreating {
                 30000,
                 300000);
         KafkaHelper.createTopicIfNotExists(zkUtils,
-                "topicForTrackletsS&RTest",
+                "topicForTrackletsSRTest",
                 10,
                 2);
         System.out.println("Topics checked!");

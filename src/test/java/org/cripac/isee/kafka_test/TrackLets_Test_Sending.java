@@ -65,10 +65,13 @@ public class TrackLets_Test_Sending {
         System.out.printf("%d ms",startTime);
         System.out.println();
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
+        TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.TRACKLET);
+        Tracklet testTracklet = testTracklets[0];
+
         for (int i = 0 ; i < 100 ; ++i) {
-            Tracklet testTracklet = testTracklets[0];
-            TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.TRACKLET);
-            sendWithLog("topicForTrackletsS&RTest", UUID.randomUUID().toString(),
+
+
+            sendWithLog("topicForTrackletsSRTest", UUID.randomUUID().toString(),
                     serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                             executionPlan,new TrackletOrURL(testTracklet))),producer,logger);
         }

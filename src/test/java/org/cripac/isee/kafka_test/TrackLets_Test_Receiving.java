@@ -26,7 +26,7 @@ import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
  */
 public class TrackLets_Test_Receiving {
     final static Stream.Port TEST_Tracklets_SAVE_RETRIVE_PORT =
-            new Stream.Port("topicForTrackletsS&RTest", DataType.TRACKLET);
+            new Stream.Port("topicForTrackletsSRTest", DataType.TRACKLET);
 
     public static void main(String[] args){
         KafkaConsumer<String, byte[]> consumer;

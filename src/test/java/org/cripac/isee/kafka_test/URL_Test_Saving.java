@@ -76,6 +76,7 @@ public class URL_Test_Saving {
         System.out.printf("%d ms",startTime);
         System.out.println();
         TaskData.ExecutionPlan executionPlan = new TaskData.ExecutionPlan();
+        TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
         String sendURL;
         Tracklet testTracklet = testTracklets[0];
         byte[][] serializedData = new byte[1000][];
@@ -91,7 +92,7 @@ public class URL_Test_Saving {
             Kafka_Url_Test.testTrackletsSaving(sendURL,
                                         testTracklet,
                                         hdfs);
-            TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.URL);
+
             serializedData[i] =  serialize(new TaskData(node.createInputPort(TEST_URL_SAVE_RETRIVE_PORT),
                     executionPlan,sendURL));
             sendWithLog("topicForURLTest",UUID.randomUUID().toString(),
