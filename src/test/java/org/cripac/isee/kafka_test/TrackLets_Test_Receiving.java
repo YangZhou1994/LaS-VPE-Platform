@@ -38,7 +38,7 @@ public class TrackLets_Test_Receiving {
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,ByteArrayDeserializer.class);
         consumerProp.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000);
-
+        consumerProp.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
         consumer = new KafkaConsumer<>(consumerProp);
         consumer.subscribe(Collections.singletonList(TEST_Tracklets_SAVE_RETRIVE_PORT.name));
         ConsumerRecords<String, byte[]> records;
@@ -53,7 +53,7 @@ public class TrackLets_Test_Receiving {
         //Waiting for Response
         while (testSample.size() < 1000 ) {
 
-            records = consumer.poll(0);
+            records = consumer.poll(1000);
             if (records.isEmpty()) {
                 continue;
             }
