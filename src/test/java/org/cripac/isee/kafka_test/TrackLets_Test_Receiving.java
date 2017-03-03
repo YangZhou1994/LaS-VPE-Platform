@@ -51,7 +51,7 @@ public class TrackLets_Test_Receiving {
         System.out.println();
 
         //Waiting for Response
-        while (testSample.size() < 100 ) {
+        while (testSample.size() < 1000 ) {
 
             records = consumer.poll(0);
             if (records.isEmpty()) {

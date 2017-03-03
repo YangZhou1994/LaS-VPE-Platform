@@ -68,14 +68,14 @@ public class TrackLets_Test_Sending {
         TaskData.ExecutionPlan.Node node = executionPlan.addNode(DataType.TRACKLET);
         Tracklet testTracklet = testTracklets[0];
         int i;
-        for (i = 0 ; i < 100 ; ++i) {
+        for (i = 0 ; i < 1000 ; ++i) {
 
 
             sendWithLog("topicForTrackletsSRTest","Tracklet_Deliver_"+i,
                     serialize(new TaskData(node.createInputPort(TEST_Tracklets_SAVE_RETRIVE_PORT),
                             executionPlan,new TrackletOrURL(testTracklet))),producer,logger);
-            System.out.println();
-            System.out.printf("%d",i);
+            //System.out.println();
+            //System.out.printf("%d",i);
         }
 
         long endTime = System.currentTimeMillis();
