@@ -36,14 +36,14 @@ public class FakePedestrianTracker extends Tracker {
         tracklet.id.serialNumber = -1;
 
         //int appearSpan = random.nextInt(31) + 1;
-        int appearSpan = 500;
+        int appearSpan = 1;
         tracklet.locationSequence = new BoundingBox[appearSpan];
         for (int i = 0; i < appearSpan; ++i) {
             BoundingBox bbox = new BoundingBox();
             //bbox.width = random.nextInt(640) + 1;
             //bbox.height = random.nextInt(640) + 1;
-            bbox.height = 300;
-            bbox.width = 200;
+            bbox.height = 600;
+            bbox.width = 600;
             bbox.x = random.nextInt(bbox.width) + 1;
             bbox.y = random.nextInt(bbox.height) + 1;
             bbox.patchData = new byte[bbox.width * bbox.height * 3];
